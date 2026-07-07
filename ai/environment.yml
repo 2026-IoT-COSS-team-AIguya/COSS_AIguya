@@ -1,0 +1,6 @@
+name: coss
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+prefix: C:\Users\USER\anaconda3\envs\coss
