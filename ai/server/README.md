@@ -45,12 +45,16 @@ curl -X POST http://127.0.0.1:9000/recognize -H "Content-Type: application/json"
 
 ## 알아둘 점 (중요)
 
-**아직 `enroll.py`(시연자 등록)를 안 해서 실제로는 항상 실패 응답이 나와요.**
-`predict_sign_from_video()`가 내부적으로 `infer.predict()`를 쓰는데, 이건
-`ai/models/enrolled_prototypes.npz`가 있어야 동작한다 -- 시연자가 78개 단어를
-직접 녹화해서 `enroll.py`로 등록해야 이 파일이 생긴다. 등록 전까지는 서버가
-정상적으로 뜨고 요청도 잘 받지만, 매번 `AI_INFERENCE_FAILED`로 응답한다(서버
-버그 아님, 의도된 동작).
+**시연자 등록(enroll) 완료됨 -- 정상 동작합니다.**
+`predict_sign_from_video()`가 내부적으로 쓰는 `infer.predict()`는
+`ai/models/enrolled_prototypes.npz`가 있어야 동작하는데, 이 파일이 이미 생성돼
+있다. 실제 시연자(A/B/D)가 학습 데이터 촬영 때 이미 78개 단어를 다 찍어놔서,
+새로 등록 영상을 찍는 대신 `enroll_from_recorded.py`로 기존 촬영본(F 각도)의
+keypoint를 재사용해 등록했다(468개 인스턴스, 78개 단어 전부 커버).
 
-- 요청/응답 형식, 에러 처리, 영상 다운로드까지는 전부 테스트 완료.
-- 등록 끝나면 별도 코드 수정 없이 그대로 정상 동작한다.
+- 요청/응답 형식, 에러 처리, 영상 다운로드, 등록 후 추론까지 전부 테스트 완료.
+- 시연자가 A/B/D 세 명이 아니거나 인원이 바뀌면
+  `ai/sign_recognition/enroll_from_recorded.py`의 `DEMO_PERSONS`를 수정하고
+  다시 실행해서 `enrolled_prototypes.npz`를 재생성해야 한다.
+- 새 시연자가 기존 학습 데이터에 없는 사람이면(전혀 새로운 사람), 그 사람은
+  `ai/sign_recognition/enroll.py`로 별도 촬영 후 등록해야 한다.
