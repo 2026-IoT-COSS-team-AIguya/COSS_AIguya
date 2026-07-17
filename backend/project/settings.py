@@ -153,6 +153,9 @@ STATIC_URL = 'static/'
 # oneM2M에는 이 URL과 메타데이터만 등록합니다.
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+# 외부 AI 서버가 개발 PC의 사설 IP(예: 192.168.x.x)를 못 여는 경우,
+# ngrok/cloudflared 같은 공개 base URL을 넣어 video_url을 그 주소로 만들 수 있습니다.
+MEDIA_PUBLIC_BASE_URL = os.getenv('MEDIA_PUBLIC_BASE_URL', '')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

@@ -26,8 +26,13 @@ export function useConversations(
 
   useEffect(() => {
     if (!enabled) {
-      setConversations(null);
-      return;
+      const resetTimer = window.setTimeout(() => {
+        setConversations(null);
+      }, 0);
+
+      return () => {
+        window.clearTimeout(resetTimer);
+      };
     }
 
     const controller = new AbortController();
@@ -66,8 +71,8 @@ export function useConversations(
   }, [enabled, reloadToken, onAuthExpired]);
 
   return {
-    conversations: conversations ?? [],
-    loading: conversations === null,
+    conversations: enabled ? conversations ?? [] : [],
+    loading: enabled && conversations === null,
     refresh,
   };
 }

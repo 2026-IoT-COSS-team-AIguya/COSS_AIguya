@@ -70,7 +70,10 @@ export function CaptureButton({
   useEffect(() => stopCamera, [stopCamera]);
 
   const close = () => {
-    recorderRef.current?.state === "recording" && recorderRef.current.stop();
+    if (recorderRef.current?.state === "recording") {
+      recorderRef.current.stop();
+    }
+
     stopCamera();
     setPhase("idle");
     setSeconds(0);
