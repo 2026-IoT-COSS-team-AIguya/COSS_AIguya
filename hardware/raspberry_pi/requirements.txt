@@ -1,0 +1,8 @@
+requests>=2.31
+pyserial>=3.5
+python-dotenv>=1.0
+
+# picamera2는 pip로 깔지 마세요. 라즈베리파이 OS에 시스템 패키지로 들어 있습니다:
+#   sudo apt install -y python3-picamera2 ffmpeg
+# 가상환경을 쓴다면 시스템 패키지를 볼 수 있게 만들어야 합니다:
+#   python3 -m venv --system-site-packages .venv

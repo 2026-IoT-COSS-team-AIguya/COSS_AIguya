@@ -10,20 +10,38 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
+from datetime import timedelta
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+load_dotenv(BASE_DIR / '.env')
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+
+def env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def env_list(name, default=''):
+    raw = os.getenv(name, default)
+    return [item.strip() for item in raw.split(',') if item.strip()]
+
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-e7gle2w%08)rbm6%1gfm4d(1&((m(xr@@qcpk5f4d2hb*=bh_n'
+SECRET_KEY = os.getenv(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-e7gle2w%08)rbm6%1gfm4d(1&((m(xr@@qcpk5f4d2hb*=bh_n',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool('DJANGO_DEBUG', True)
 
 ALLOWED_HOSTS = ['*']
 
@@ -39,10 +57,17 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'main',
     'rest_framework',
+    'corsheaders',
+    'accounts',
+    'conversations',
+    'recognitions',
+    'sign_videos',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # CorsMiddleware는 응답에 헤더를 붙여야 하므로 CommonMiddleware보다 앞에 둡니다.
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -82,6 +107,10 @@ DATABASES = {
 }
 
 
+# 명세 20장 체크리스트 1번: 첫 마이그레이션 전에 반드시 설정해야 합니다.
+AUTH_USER_MODEL = 'accounts.User'
+
+
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
@@ -110,10 +139,67 @@ TIME_ZONE = 'Asia/Seoul'
 
 USE_I18N = True
 
-USE_TZ = False
+# 명세의 created_at 예시가 "2026-07-17T05:30:00Z" (UTC)라서 aware datetime을 씁니다.
+USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# 업로드된 수어 영상 저장 위치.
+# 30장 최종안: 영상 파일은 여기(또는 Object Storage)에 두고,
+# oneM2M에는 이 URL과 메타데이터만 등록합니다.
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    # 명세 8장의 오류 형식으로 통일합니다.
+    'EXCEPTION_HANDLER': 'project.exceptions.api_exception_handler',
+}
+
+# 명세 10장: Access 30분, Refresh 7일
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+}
+
+# Refresh Token은 HttpOnly 쿠키로 내려갑니다 (명세 10장).
+REFRESH_COOKIE_NAME = 'refresh_token'
+REFRESH_COOKIE_SECURE = env_bool('REFRESH_COOKIE_SECURE', False)
+REFRESH_COOKIE_SAMESITE = os.getenv('REFRESH_COOKIE_SAMESITE', 'Lax')
+
+# 명세 10장: 백엔드는 허용할 프론트 Origin을 명시적으로 설정해야 합니다.
+CORS_ALLOWED_ORIGINS = env_list('CORS_ALLOWED_ORIGINS', 'http://localhost:3000')
+# 프론트가 credentials: "include" 로 Refresh 쿠키를 보내므로 필요합니다.
+CORS_ALLOW_CREDENTIALS = True
+
+# 인-백 연동
+AI_SERVER_URL = os.getenv('AI_SERVER_URL', '')
+AI_TIMEOUT_SECONDS = int(os.getenv('AI_TIMEOUT_SECONDS', '30'))
+# 명세 20장: AI 콜백에는 내부 API Key 인증을 적용합니다.
+AI_CALLBACK_API_KEY = os.getenv('AI_CALLBACK_API_KEY', 'dev-internal-key')
+
+# COSS 플랫폼 (oneM2M / Mobius). 비어 있으면 등록을 건너뜁니다.
+# 계약은 포털의 Postman 컬렉션(Mobius_API_Release2)에서 확인했습니다.
+ONEM2M_BASE_URL = os.getenv('ONEM2M_BASE_URL', '')
+ONEM2M_CSE_NAME = os.getenv('ONEM2M_CSE_NAME', 'Mobius')
+ONEM2M_API_KEY = os.getenv('ONEM2M_API_KEY', '')
+# X-AUTH-CUSTOM-LECTURE — 수업 ID
+ONEM2M_LECTURE_ID = os.getenv('ONEM2M_LECTURE_ID', '')
+# X-AUTH-CUSTOM-CREATOR — 학교 코드 + 학번 식별 코드
+ONEM2M_CREATOR = os.getenv('ONEM2M_CREATOR', '')
+# AE 리소스 이름과, AE 생성 후 발급된 AE-ID(X-M2M-Origin에 씁니다)
+ONEM2M_AE_NAME = os.getenv('ONEM2M_AE_NAME', '')
+ONEM2M_ORIGINATOR = os.getenv('ONEM2M_ORIGINATOR', '')
+ONEM2M_TIMEOUT_SECONDS = int(os.getenv('ONEM2M_TIMEOUT_SECONDS', '5'))

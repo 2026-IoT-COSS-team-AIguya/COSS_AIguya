@@ -286,3 +286,5 @@ wandb/
 *.mkv
 runs/
 datasets/
+# 라즈베리파이가 촬영한 임시 영상 (업로드 후 삭제되지만 남을 수 있음)
+hardware/raspberry_pi/captures/
