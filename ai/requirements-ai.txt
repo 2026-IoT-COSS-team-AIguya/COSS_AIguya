@@ -11,3 +11,7 @@ joblib
 mediapipe
 python-dotenv
 google-genai
+fastapi
+uvicorn
+requests
+facenet-pytorch
