@@ -27,9 +27,16 @@ def get_conversation_by_code(code):
 
 
 def get_user_conversations(user):
+    """최근 메시지가 온 대화가 앞에 옵니다 (touch_conversation이 updated_at을 갱신).
+
+    Meta.ordering에 기대지 않고 여기서 명시합니다 — distinct()가 붙으면 정렬이
+    조용히 어긋날 수 있고, 이 순서는 화면에 그대로 드러나는 계약이라 눈에
+    보이는 자리에 적어둡니다.
+    """
     return (
         Conversation.objects.filter(participants__user=user)
         .prefetch_related('participants__user', 'messages')
+        .order_by('-updated_at', '-id')
         .distinct()
     )
 

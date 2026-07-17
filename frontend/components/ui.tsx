@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 
+import { firstGrapheme } from "@/lib/graphemes";
+
 export function Panel({
   children,
   className = "",
@@ -107,7 +109,7 @@ export function Avatar({ label, mine = false }: { label: string; mine?: boolean 
         mine ? "bg-sky-500" : "bg-[linear-gradient(180deg,#0F172A_0%,#1D4ED8_100%)]"
       }`}
     >
-      {label.slice(0, 1)}
+      {firstGrapheme(label)}
     </div>
   );
 }

@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { CaptureButton } from "@/components/CaptureButton";
 import { ChatBubble } from "@/components/ChatBubble";
 import { ActionButton, Panel } from "@/components/ui";
 import { useMessagePolling } from "@/hooks/useMessagePolling";
 import {
   createSignVideoSequenceMessage,
   createTextMessage,
+  sentenceToSignSequence,
 } from "@/lib/api/endpoints";
 import { toUserMessage } from "@/lib/api/errors";
 import type {
@@ -25,6 +27,7 @@ export function ChatView({
   currentUser,
   quickKeywords,
   lookup,
+  matchInText,
   onOpenSequence,
   onAuthExpired,
 }: {
@@ -34,6 +37,7 @@ export function ChatView({
   currentUser: User;
   quickKeywords: QuickKeyword[];
   lookup: (keyword: string) => SignVideo;
+  matchInText: (text: string) => SignVideo[];
   onOpenSequence: (
     title: string,
     sequence: SignVideoSequenceItem[],
@@ -102,6 +106,36 @@ export function ChatView({
     }
   };
 
+  // 입력창의 문장을 AI가 수어 키워드로 바꿔서 영상 시퀀스로 보냅니다.
+  // 키워드를 직접 고르는 아래 버튼과 달리, 그냥 평소처럼 말하면 됩니다.
+  const handleSendSentenceAsSign = async () => {
+    if (selectedId === null || !draft.trim() || sending) {
+      return;
+    }
+
+    setSending(true);
+    setError(null);
+
+    try {
+      const { keywords } = await sentenceToSignSequence(draft.trim());
+
+      if (keywords.length === 0) {
+        setError(
+          "이 문장에서 수어로 바꿀 수 있는 단어를 못 찾았어요. 다르게 말해보시거나 아래 키워드를 골라주세요."
+        );
+        return;
+      }
+
+      const message = await createSignVideoSequenceMessage(selectedId, keywords);
+      appendLocal(message);
+      setDraft("");
+    } catch (cause) {
+      setError(toUserMessage(cause));
+    } finally {
+      setSending(false);
+    }
+  };
+
   const togglePick = (keyword: string) => {
     setPickedKeywords((current) =>
       current.includes(keyword)
@@ -118,11 +152,23 @@ export function ChatView({
             대화 목록
           </h3>
           <p className="mt-1 text-xs font-medium text-slate-400">
-            시연 시나리오 4종이 순서대로 준비되어 있습니다.
+            최근 메시지가 온 대화가 위로 올라옵니다.
           </p>
         </div>
 
         <div className="space-y-3 overflow-y-auto pr-1">
+          {conversations.length === 0 && (
+            <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+              <p className="text-3xl">👋</p>
+              <p className="mt-3 text-sm font-black text-slate-700">
+                아직 대화가 없어요
+              </p>
+              <p className="mt-2 text-xs leading-5 text-slate-400">
+                👥 친구 화면에서 이모지 아이디로 친구를 추가한 뒤 대화를 시작하세요.
+              </p>
+            </div>
+          )}
+
           {conversations.map((conversation) => (
             <button
               key={conversation.id}
@@ -204,6 +250,7 @@ export function ChatView({
                 index={index}
                 currentUser={currentUser}
                 lookup={lookup}
+                matchInText={matchInText}
                 onOpenSequence={onOpenSequence}
               />
             ))}
@@ -220,24 +267,62 @@ export function ChatView({
           )}
 
           {isSignUser ? (
-            <div className="flex gap-2">
-              <input
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    handleSendText();
-                  }
-                }}
-                placeholder="✍️ 필담으로 적기"
-                className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
-              />
-              <ActionButton
-                onClick={handleSendText}
-                disabled={!draft.trim() || sending}
-              >
-                전송
-              </ActionButton>
+            <div className="space-y-3">
+              {/* 수어가 주 입력입니다. 촬영을 맨 앞에 크게 둡니다 —
+                  필담만 있으면 농인에게 "글로 쓰세요"라고 하는 화면이 됩니다. */}
+              <div className="flex items-center gap-3">
+                <CaptureButton
+                  conversationId={selectedId}
+                  label="🎥 수어로 말하기"
+                />
+                <p className="text-xs leading-5 text-slate-400">
+                  찍으면 AI가 분석해서 이 대화에 올려줍니다.
+                  <br />
+                  🔘 아두이노 버튼을 눌러도 됩니다.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-xs font-bold text-slate-400">
+                  또는 ✍️ 필담으로
+                </span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      handleSendText();
+                    }
+                  }}
+                  placeholder="✍️ 글이나 이모지로 적기"
+                  className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+                />
+                <ActionButton
+                  onClick={handleSendText}
+                  disabled={!draft.trim() || sending}
+                >
+                  전송
+                </ActionButton>
+              </div>
+
+              {/* 농인 화면은 이모지를 크게 깔아둡니다 — 글자보다 빠르게 고를 수 있습니다. */}
+              <div className="flex flex-wrap items-center gap-2">
+                {quickKeywords.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setDraft((current) => current + item.emoji)}
+                    title={item.keyword}
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl border border-sky-100 bg-sky-50 text-2xl transition-all duration-200 hover:-translate-y-0.5 hover:bg-sky-100 hover:shadow-md active:translate-y-0"
+                  >
+                    {item.emoji}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -259,9 +344,16 @@ export function ChatView({
                 >
                   전송
                 </ActionButton>
+                <ActionButton
+                  dark
+                  onClick={handleSendSentenceAsSign}
+                  disabled={!draft.trim() || sending}
+                >
+                  {sending ? "🧠 분석 중…" : "🤟 수어로 보내기"}
+                </ActionButton>
               </div>
 
-              {/* 비장애인은 키워드를 골라 수어 영상 시퀀스로 보냅니다. */}
+              {/* 위 문장 입력이 기본이고, 아래는 AI 없이 키워드를 직접 고르는 길입니다. */}
               <div className="flex flex-wrap items-center gap-2">
                 {quickKeywords.map((item) => (
                   <button
@@ -278,13 +370,15 @@ export function ChatView({
                   </button>
                 ))}
 
-                <ActionButton
-                  dark
-                  onClick={handleSendSequence}
-                  disabled={pickedKeywords.length === 0 || sending}
-                >
-                  🤟 수어 영상으로 보내기
-                </ActionButton>
+                {pickedKeywords.length > 0 && (
+                  <ActionButton
+                    light
+                    onClick={handleSendSequence}
+                    disabled={sending}
+                  >
+                    고른 {pickedKeywords.length}개 보내기
+                  </ActionButton>
+                )}
               </div>
             </div>
           )}

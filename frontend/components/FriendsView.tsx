@@ -2,6 +2,13 @@
 
 import { useState } from "react";
 
+import {
+  EmojiIdDisplay,
+  EmojiPalette,
+  MAX_ID_EMOJIS,
+  countGraphemes,
+  removeLastGrapheme,
+} from "@/components/EmojiKeypad";
 import { ActionButton, Avatar, Panel } from "@/components/ui";
 import { useFriends } from "@/hooks/useFriends";
 import {
@@ -83,30 +90,33 @@ export function FriendsView({
             친구 추가
           </p>
           <h3 className="mt-2 text-2xl font-black text-slate-900">
-            닉네임으로 찾기
+            아이디로 찾기
           </h3>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            상대의 닉네임을 정확히 입력하면 친구 신청이 갑니다.
+            친구의 이모지 아이디를 순서대로 골라주세요.
           </p>
         </div>
 
-        <div className="flex gap-2">
-          <input
+        {/* 아이디는 농인·청인 모두 이모지라 입력 방식이 하나뿐입니다. */}
+        <div className="space-y-3">
+          <EmojiIdDisplay
             value={nickname}
-            onChange={(event) => setNickname(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                handleSend();
-              }
-            }}
-            placeholder="예: 채진"
-            className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all duration-200 focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+            placeholder="친구의 이모지 아이디를 골라주세요"
+          />
+          <EmojiPalette
+            onPick={(emoji) =>
+              setNickname((current) =>
+                countGraphemes(current) >= MAX_ID_EMOJIS ? current : current + emoji
+              )
+            }
+            onBackspace={() => setNickname((current) => removeLastGrapheme(current))}
+            disabled={countGraphemes(nickname) >= MAX_ID_EMOJIS}
           />
           <ActionButton
             onClick={handleSend}
             disabled={!nickname.trim() || busy === "send"}
           >
-            {busy === "send" ? "보내는 중…" : "🔍 신청"}
+            {busy === "send" ? "보내는 중…" : "🔍 친구 신청"}
           </ActionButton>
         </div>
 
@@ -234,7 +244,7 @@ export function FriendsView({
               아직 친구가 없어요
             </p>
             <p className="mt-2 text-sm text-slate-400">
-              왼쪽에서 닉네임으로 친구를 찾아보세요.
+              왼쪽에서 이모지 아이디로 친구를 찾아보세요.
             </p>
           </div>
         )}

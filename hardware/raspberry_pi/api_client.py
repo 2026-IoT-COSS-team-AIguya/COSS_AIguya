@@ -94,7 +94,9 @@ class BackendClient:
             'device_id': config.DEVICE_ID,
         }
 
-        # 대화 ID가 있으면 채팅 모드, 없으면 번역기 모드(대면)로 올라갑니다.
+        # 목적지는 보통 백엔드가 정합니다 — 화면이 등록해둔 촬영 대상(대화방/번역기)을
+        # 보고 라우팅하므로, 기기는 자기가 어디로 가는지 몰라도 됩니다.
+        # CONVERSATION_ID를 굳이 채워둔 경우에만 그 값으로 덮어씁니다.
         if config.CONVERSATION_ID:
             data['conversation_id'] = config.CONVERSATION_ID
 

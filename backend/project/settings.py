@@ -187,6 +187,12 @@ CORS_ALLOW_CREDENTIALS = True
 # 인-백 연동
 AI_SERVER_URL = os.getenv('AI_SERVER_URL', '')
 AI_TIMEOUT_SECONDS = int(os.getenv('AI_TIMEOUT_SECONDS', '30'))
+
+# 문장 → 수어 키워드 분해 (project/gemini.py).
+# ai/sentence_generation 과 같은 키·같은 모델을 씁니다. 비어 있으면 해당 기능만
+# AI_SERVER_UNAVAILABLE로 막히고, 나머지 화면은 그대로 동작합니다.
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-flash-lite-latest')
 # 명세 20장: AI 콜백에는 내부 API Key 인증을 적용합니다.
 AI_CALLBACK_API_KEY = os.getenv('AI_CALLBACK_API_KEY', 'dev-internal-key')
 

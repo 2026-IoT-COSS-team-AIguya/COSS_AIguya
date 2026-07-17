@@ -9,24 +9,28 @@ import { SequenceModal, type SequenceModalState } from "@/components/SequenceMod
 import { SettingsView } from "@/components/SettingsView";
 import { TranslatorView } from "@/components/TranslatorView";
 import { MotionStyles, SidebarButton, StatusPill } from "@/components/ui";
+import { useConversations } from "@/hooks/useConversations";
 import { useSignVideoDictionary } from "@/hooks/useSignVideoDictionary";
 import { setAccessToken } from "@/lib/api/client";
-import { listConversations, listQuickKeywords, logout } from "@/lib/api/endpoints";
+import {
+  listQuickKeywords,
+  logout,
+  restoreSession,
+  setCaptureTarget,
+} from "@/lib/api/endpoints";
+import { firstGrapheme } from "@/lib/graphemes";
 import { roleLabel } from "@/lib/types";
-import type {
-  Conversation,
-  QuickKeyword,
-  SignVideoSequenceItem,
-  User,
-} from "@/lib/types";
+import type { QuickKeyword, SignVideoSequenceItem, User } from "@/lib/types";
 
 type MenuType = "chat" | "friends" | "translator" | "settings";
 
 export default function Page() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // 첫 화면을 그리기 전에 Refresh 쿠키로 세션을 되살려봅니다. 이게 끝나기 전에
+  // 로그인 화면을 그리면, 이미 로그인된 사람에게 로그인 화면이 번쩍 스칩니다.
+  const [booting, setBooting] = useState(true);
   const [activeMenu, setActiveMenu] = useState<MenuType>("chat");
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [quickKeywords, setQuickKeywords] = useState<QuickKeyword[]>([]);
 
@@ -36,34 +40,80 @@ export default function Page() {
     sequence: [],
   });
 
-  const { lookup } = useSignVideoDictionary(currentUser !== null);
+  const { lookup, matchInText } = useSignVideoDictionary(currentUser !== null);
 
   // 명세 10장: 토큰 갱신까지 실패하면 로그인 화면으로 이동합니다.
   const handleAuthExpired = useCallback(() => {
     setAccessToken(null);
     setCurrentUser(null);
-    setConversations([]);
     setSelectedId(null);
   }, []);
 
-  // 로그인하면 대화 목록과 빠른 키워드를 받아옵니다.
+  // 명세 10장대로 Access Token은 메모리에만 둡니다 — 새로고침하면 사라집니다.
+  // 대신 Refresh 쿠키(HttpOnly, 7일)로 되살립니다. 이게 없으면 새로고침할 때마다,
+  // 개발 중에는 파일을 저장할 때마다 로그인 화면으로 튕깁니다.
+  useEffect(() => {
+    let cancelled = false;
+
+    restoreSession()
+      .then((user) => {
+        if (!cancelled && user) {
+          setCurrentUser(user);
+        }
+      })
+      .catch(() => {
+        // 되살리기 실패는 그냥 "로그인 안 된 상태"입니다. 오류를 띄우지 않습니다.
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setBooting(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 목록을 주기적으로 다시 받아옵니다 — 최근 메시지가 온 대화가 위로 올라오고,
+  // 상대가 만든 새 대화도 알아서 나타납니다.
+  const { conversations, refresh: refreshConversations } = useConversations(
+    currentUser !== null,
+    handleAuthExpired
+  );
+
+  // 아직 아무 방도 안 골랐으면 맨 위(= 가장 최근) 대화를 띄웁니다.
+  // 이미 고른 방이 있으면 폴링으로 순서가 바뀌어도 건드리지 않습니다.
+  useEffect(() => {
+    setSelectedId((current) => current ?? conversations[0]?.id ?? null);
+  }, [conversations]);
+
+  // 촬영 버튼(아두이노)을 눌렀을 때 결과가 어디로 갈지 서버에 등록해둡니다.
+  // 채팅 화면에서 방을 열어두고 있으면 그 방으로, 번역기 화면을 보고 있으면
+  // 대화방 없이 번역기로. 기기는 목적지를 모른 채 촬영만 하면 됩니다.
+  //
+  // 채팅 화면인데 아직 방을 못 고른 경우(대화 0개)는 등록할 대화가 없으므로
+  // 번역기 모드로 둡니다 — 그래야 촬영분이 사라지지 않고 번역기 화면에 남습니다.
+  const captureConversationId =
+    activeMenu === "chat" && selectedId !== null ? selectedId : null;
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    setCaptureTarget(captureConversationId).catch(() => {
+      // 등록 실패는 조용히 넘깁니다. 화면을 다시 옮기면 또 시도하고,
+      // 실패해도 촬영분은 번역기 모드로 안전하게 떨어집니다.
+    });
+  }, [currentUser, captureConversationId]);
+
   useEffect(() => {
     if (!currentUser) {
       return;
     }
 
     let cancelled = false;
-
-    listConversations()
-      .then((result) => {
-        if (cancelled) {
-          return;
-        }
-
-        setConversations(result);
-        setSelectedId((current) => current ?? result[0]?.id ?? null);
-      })
-      .catch(handleAuthExpired);
 
     listQuickKeywords()
       .then((result) => {
@@ -78,7 +128,7 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser, handleAuthExpired]);
+  }, [currentUser]);
 
   const openSequence = (
     title: string,
@@ -88,14 +138,9 @@ export default function Page() {
     setSequenceModal({ open: true, title, sequence, description });
   };
 
-  // 친구 화면에서 대화를 만들면 목록에 넣고 바로 그 방으로 데려갑니다.
-  const handleConversationCreated = async (conversationId: number) => {
-    try {
-      setConversations(await listConversations());
-    } catch {
-      // 목록 갱신에 실패해도 방으로는 들어갑니다.
-    }
-
+  // 친구 화면에서 대화를 만들면 폴링 주기를 기다리지 않고 바로 그 방으로 데려갑니다.
+  const handleConversationCreated = (conversationId: number) => {
+    refreshConversations();
     setSelectedId(conversationId);
     setActiveMenu("chat");
   };
@@ -107,6 +152,24 @@ export default function Page() {
       handleAuthExpired();
     }
   };
+
+  // 세션 복구 중. 잠깐이지만 여기서 로그인 화면을 그리면 이미 로그인된 사람에게도
+  // 화면이 번쩍 스쳤다가 넘어갑니다.
+  if (booting) {
+    return (
+      <>
+        <MotionStyles />
+        <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_15%_18%,rgba(56,189,248,0.24),transparent_30%),linear-gradient(135deg,#07111f_0%,#0b1f4e_48%,#0f2a5f_100%)]">
+          <div className="animate-fade-up text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-2xl font-black text-slate-950 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+              손
+            </div>
+            <p className="mt-5 text-sm font-bold text-sky-100/70">불러오는 중…</p>
+          </div>
+        </main>
+      </>
+    );
+  }
 
   if (!currentUser) {
     return (
@@ -168,11 +231,13 @@ export default function Page() {
             </nav>
 
             <div className="relative z-10 mt-auto rounded-[26px] border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
-              <p className="text-sm font-bold text-white/95">시연 시나리오 4종</p>
-              <p className="mt-2 text-xs leading-6 text-sky-50/70">
-                👫 친구 · 🧭 길찾기
-                <br />
-                🏥 병원 · 🏦 은행
+              <p className="text-sm font-bold text-white/95">
+                {isSignUser ? "🤟 수어로 말하기" : "🧠 AI 통역"}
+              </p>
+              <p className="mt-2 whitespace-pre-line text-xs leading-6 text-sky-50/70">
+                {isSignUser
+                  ? "🔘 버튼 → 💡 LED → 📷 촬영\n결과는 지금 보고 있는 화면으로 갑니다."
+                  : "문장을 그냥 쓰면\nAI가 수어 단어로 바꿔줍니다."}
               </p>
             </div>
           </div>
@@ -193,9 +258,9 @@ export default function Page() {
                     ? "🤟 촬영하면 AI가 분석해서 대화에 올려줍니다."
                     : "⌨️ 농인의 수어 메시지는 왼쪽, 내 답변은 오른쪽에 보입니다.")}
                 {activeMenu === "friends" &&
-                  "닉네임으로 친구를 찾아 대화를 시작합니다."}
+                  "이모지 아이디로 친구를 찾아 대화를 시작합니다."}
                 {activeMenu === "translator" &&
-                  "🔘 버튼을 누르면 촬영이 시작되고 결과가 여기에 나타납니다."}
+                  "🎥 촬영하면 결과가 여기에 나타납니다. 대화방 없이 그 자리에서 번역합니다."}
                 {activeMenu === "settings" && "계정 정보와 구현 현황을 확인합니다."}
               </p>
             </div>
@@ -208,7 +273,7 @@ export default function Page() {
 
               <div className="ml-2 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-xl">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-sm font-black text-slate-950">
-                  {currentUser.nickname.slice(0, 1)}
+                  {firstGrapheme(currentUser.nickname)}
                 </div>
                 <div className="hidden leading-tight xl:block">
                   <p className="text-xs font-black text-white">
@@ -231,6 +296,7 @@ export default function Page() {
                 currentUser={currentUser}
                 quickKeywords={quickKeywords}
                 lookup={lookup}
+                matchInText={matchInText}
                 onOpenSequence={openSequence}
                 onAuthExpired={handleAuthExpired}
               />

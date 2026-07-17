@@ -6,6 +6,7 @@ from project.errors import ApiError, ErrorCode
 from sign_videos import selectors, services
 from sign_videos.serializers import (
     QuickKeywordSerializer,
+    SentenceToSequenceSerializer,
     SignVideoSequenceItemSerializer,
     SignVideoSequencePreviewSerializer,
     SignVideoSerializer,
@@ -71,4 +72,32 @@ class SignVideoSequencePreviewAPIView(APIView):
             SignVideoSequenceItemSerializer(
                 sequence, many=True, context={'request': request}
             ).data
+        )
+
+
+class SentenceToSequenceAPIView(APIView):
+    """자유 문장 → 수어 영상 시퀀스.
+
+    요청: {"sentence": "괜찮아 천천히 와"}
+    응답: {"keywords": ["괜찮다", "천천히"], "sequence": [...]}
+
+    문장을 Gemini가 사전 안의 키워드로 분해합니다. 사전에 겹치는 단어가 하나도
+    없으면 오류가 아니라 빈 결과입니다 — 문장 분석 자체는 성공했으므로.
+    """
+
+    def post(self, request):
+        serializer = SentenceToSequenceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = services.build_sign_video_sequence_from_sentence(
+            serializer.validated_data['sentence']
+        )
+
+        return Response(
+            {
+                'keywords': result['keywords'],
+                'sequence': SignVideoSequenceItemSerializer(
+                    result['sequence'], many=True, context={'request': request}
+                ).data,
+            }
         )

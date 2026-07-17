@@ -50,5 +50,29 @@ export function useSignVideoDictionary(enabled: boolean) {
     [dictionary]
   );
 
-  return { lookup, ready: dictionary.size > 0 };
+  // 문장 안에 들어 있는 사전 단어를 등장 순서대로 찾습니다.
+  // 농인 화면에서 상대가 보낸 맨 텍스트에 이모지를 붙여주는 데 씁니다 —
+  // 한국어 문장만 덩그러니 있는 것보다 그림이 붙으면 훨씬 빨리 읽힙니다.
+  const matchInText = useCallback(
+    (text: string): SignVideo[] => {
+      if (!text) {
+        return [];
+      }
+
+      const found: { at: number; video: SignVideo }[] = [];
+
+      for (const [keyword, video] of dictionary) {
+        const at = text.indexOf(keyword);
+
+        if (at !== -1) {
+          found.push({ at, video });
+        }
+      }
+
+      return found.sort((a, b) => a.at - b.at).map((item) => item.video);
+    },
+    [dictionary]
+  );
+
+  return { lookup, matchInText, ready: dictionary.size > 0 };
 }

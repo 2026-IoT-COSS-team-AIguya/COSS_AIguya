@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 
+import {
+  EmojiIdDisplay,
+  EmojiPalette,
+  MAX_ID_EMOJIS,
+  MIN_ID_EMOJIS,
+} from "@/components/EmojiKeypad";
 import { ActionButton, MemoText, Panel, SettingRow } from "@/components/ui";
 import { updateNickname } from "@/lib/api/endpoints";
 import { toUserMessage } from "@/lib/api/errors";
+import { countGraphemes, removeLastGrapheme } from "@/lib/graphemes";
 import { roleLabel } from "@/lib/types";
 import type { User } from "@/lib/types";
 
@@ -22,7 +29,15 @@ export function SettingsView({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 아이디는 농인·청인 모두 이모지라 키보드로 고칠 수 없습니다 — 여기도 팔레트를 씁니다.
+  const idCount = countGraphemes(nickname);
+
   const handleSave = async () => {
+    if (idCount < MIN_ID_EMOJIS) {
+      setError(`이모지를 ${MIN_ID_EMOJIS}개 이상 골라주세요.`);
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -48,14 +63,29 @@ export function SettingsView({
         </p>
 
         <div className="mt-6 space-y-4">
-          <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-700">닉네임</span>
-            <input
-              value={nickname}
-              onChange={(event) => setNickname(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition-all duration-200 focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
-            />
-          </label>
+          <div>
+            <span className="mb-2 flex items-center justify-between text-sm font-bold text-slate-700">
+              <span>내 아이디</span>
+              <span className="text-xs font-semibold text-slate-400">
+                {idCount} / {MAX_ID_EMOJIS}
+              </span>
+            </span>
+            <EmojiIdDisplay value={nickname} />
+            <div className="mt-3">
+              <EmojiPalette
+                onPick={(emoji) =>
+                  setNickname((current) =>
+                    countGraphemes(current) >= MAX_ID_EMOJIS ? current : current + emoji
+                  )
+                }
+                onBackspace={() => setNickname((current) => removeLastGrapheme(current))}
+                disabled={idCount >= MAX_ID_EMOJIS}
+              />
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              아이디를 바꾸면 친구가 예전 아이디로는 나를 못 찾습니다.
+            </p>
+          </div>
 
           <div className="rounded-[24px] bg-sky-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
@@ -110,15 +140,15 @@ export function SettingsView({
           <div className="mt-5 space-y-4">
             <MemoText
               title="실제로 동작하는 것"
-              desc="카메라 촬영 → multipart 업로드(202) → 1초 간격 상태 폴링(PENDING→PROCESSING→COMPLETED) → 2초 간격 메시지 폴링(after_id)까지 전 구간이 실제 HTTP로 돕니다."
+              desc="Django 프-백과 실제 HTTP로 통신합니다. 계정·친구·대화·촬영 업로드(202) → 상태 폴링(PENDING→PROCESSING→COMPLETED) → 메시지 폴링(after_id)까지 전 구간이 진짜입니다."
+            />
+            <MemoText
+              title="문장 → 수어 (진짜 AI)"
+              desc="번역기·채팅에서 문장을 입력하면 Gemini가 수어 사전 안의 키워드로 분해합니다. 실제 API 호출입니다."
             />
             <MemoText
               title="아직 가짜인 것"
-              desc="수어 인식 결과. 모델(키포인트 기반)이 학습 중이라 lib/mock/store.ts의 fakePredictSignKeywords가 고정 예시를 순서대로 돌려줍니다. 시연에서 반드시 밝혀야 합니다."
-            />
-            <MemoText
-              title="목 백엔드"
-              desc="app/api/v1/** 가 명세와 동일한 JSON을 돌려줍니다. Django 프-백이 준비되면 NEXT_PUBLIC_API_BASE_URL만 바꾸면 프론트 코드는 그대로입니다."
+              desc="수어 영상 → 텍스트 인식. 모델(키포인트 기반)이 학습 중이라 백엔드 recognitions/ai_client.py가 고정 예시를 순서대로 돌려줍니다. 업로드·상태 전이·저장은 진짜입니다. 시연에서 반드시 밝혀야 합니다."
             />
             <MemoText
               title="수어 영상"

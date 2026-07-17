@@ -1,10 +1,26 @@
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import RegexValidator
 from django.db import models
 
 
 class UserRole(models.TextChoices):
     SIGN_USER = 'SIGN_USER', '농인 (수어 사용자)'
     HEARING_USER = 'HEARING_USER', '비장애인 / 직원'
+
+
+# 농인은 아이디를 이모지로 만듭니다 (🐶🍎⭐ 같은 조합). 타자보다 고르기가 쉽고
+# 글자를 읽지 않아도 자기 아이디를 알아볼 수 있습니다.
+#
+# Django 기본 UnicodeUsernameValidator는 \w + @.+-_ 만 허용해서 이모지를 거부합니다
+# (한글은 \w에 걸려 통과하지만 이모지는 아닙니다). 그래서 규칙을 뒤집습니다 —
+# "무엇을 허용할지" 대신 "무엇을 막을지"만 정합니다. 이모지 종류를 일일이 나열하면
+# 새 이모지가 나올 때마다 막히니까요.
+#
+# 막는 것: 공백(앞뒤 구분이 안 됨)과 제어문자.
+nickname_validator = RegexValidator(
+    regex=r'^[^\s\x00-\x1f\x7f]+$',
+    message='닉네임에 공백이나 특수 제어문자는 쓸 수 없습니다.',
+)
 
 
 class User(AbstractUser):
@@ -14,6 +30,16 @@ class User(AbstractUser):
     AbstractUser의 username을 닉네임으로 그대로 쓰고, 명세가 쓰는 nickname이라는
     이름은 프로퍼티로 맞춥니다. 컬럼을 새로 만들면 username과 이중 관리가 됩니다.
     """
+
+    # AbstractUser의 username을 그대로 물려받으면 이모지가 막히므로 다시 선언합니다.
+    username = models.CharField(
+        '닉네임',
+        max_length=30,
+        unique=True,
+        help_text='로그인 아이디. 농인은 이모지 조합, 청인은 글자를 씁니다.',
+        validators=[nickname_validator],
+        error_messages={'unique': '이미 사용 중인 닉네임입니다.'},
+    )
 
     role = models.CharField(
         max_length=20,

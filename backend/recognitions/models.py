@@ -14,6 +14,39 @@ class TranslationStatus(models.TextChoices):
     FAILED = 'FAILED', '수어를 인식하지 못했어요'
 
 
+class CaptureTarget(models.Model):
+    """이 사용자가 지금 촬영하면 결과가 어디로 갈지.
+
+    촬영은 웹 버튼이 아니라 **아두이노 물리 버튼**이 시작합니다. 그래서 라즈베리파이는
+    "누가 어느 화면을 보고 있는지" 알 수 없고, 예전에는 config.CONVERSATION_ID에
+    대화방을 하드코딩해둬야 했습니다 — 화면에서 번역기를 보고 있어도 채팅방으로
+    올라갔습니다.
+
+    대신 화면 쪽이 자기가 보고 있는 곳을 여기에 등록해두고, 업로드가 들어오면
+    백엔드가 이걸 읽어서 라우팅합니다. 기기는 자기 목적지를 몰라도 됩니다.
+
+    conversation이 null이면 번역기 모드(대면), 있으면 그 대화방입니다.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='capture_target',
+    )
+    conversation = models.ForeignKey(
+        'conversations.Conversation',
+        on_delete=models.SET_NULL,
+        related_name='capture_targets',
+        null=True,
+        blank=True,
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        where = self.conversation or '번역기 모드'
+        return f'{self.user} → {where}'
+
+
 class SignTranslation(models.Model):
     """수어 영상 한 건의 인식 작업.
 
