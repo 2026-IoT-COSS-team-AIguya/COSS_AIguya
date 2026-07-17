@@ -10,4 +10,4 @@ tqdm
 joblib
 mediapipe
 python-dotenv
-openai
+google-genai
