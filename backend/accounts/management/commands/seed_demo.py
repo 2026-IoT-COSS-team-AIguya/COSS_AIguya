@@ -4,16 +4,18 @@
 
 여러 번 돌려도 안전합니다 (get_or_create 기반).
 
-시연은 노트북 두 대로 농인(민지) / 청인(채진)이 각자 로그인해서 진행합니다.
-대화방은 **비어 있는 상태로** 만듭니다 — 촬영해서 채우는 게 시연의 목적이라
-메시지를 미리 넣지 않습니다.
+시연은 노트북 두 대로 농인 / 청인이 각자 로그인해서 진행합니다.
+
+**대화방은 만들지 않습니다.** 친구 추가 → 대화 시작이 시연에서 보여줄 흐름이라,
+미리 만들어두면 그 흐름을 건너뛰게 됩니다. 계정과 수어 사전만 심습니다.
 """
+
+import sys
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from accounts.models import FriendRequestStatus, Friendship, User, UserRole
-from conversations.models import Conversation, ConversationParticipant
+from accounts.models import User, UserRole
 from sign_videos.models import QuickKeyword, SignVideo
 
 # (keyword, title, emoji, video 파일명)
@@ -77,31 +79,39 @@ QUICK_KEYWORDS = [
     '어디', '감사', '확인', '도움', '화장실',
 ]
 
-# 시연은 두 명이지만, DB에는 여러 계정을 넣어둡니다.
+# 아이디는 전부 이모지입니다 — 농인이든 청인이든.
+#
+# 농인만 이모지로 하면 반쪽입니다: 농인이 청인 친구를 추가하려면 결국 청인의
+# 글자 아이디를 키보드로 쳐야 하니까요. 아이디는 "남이 입력하는 것"이라
+# 한쪽만 쉬워서는 소용이 없습니다.
+#
+# (frontend/components/EmojiKeypad.tsx 의 ID_EMOJIS 팔레트 안에서 골랐습니다 —
+#  거기 없는 이모지는 화면에서 입력할 수가 없습니다.)
 DEMO_USERS = [
-    ('민지', UserRole.SIGN_USER),
-    ('채진', UserRole.HEARING_USER),
-    ('지호', UserRole.SIGN_USER),
-    ('은우', UserRole.HEARING_USER),
-    ('○○병원', UserRole.HEARING_USER),
+    ('🐶🍎⭐', UserRole.SIGN_USER),
+    ('🦊🎈🌈', UserRole.HEARING_USER),
+    ('🐰🍇🌙', UserRole.SIGN_USER),
+    ('🐻🍒☀️', UserRole.HEARING_USER),
+    ('🐼🎁💎', UserRole.HEARING_USER),
 ]
 
+# 농인은 숫자 PIN, 청인은 글자 비밀번호를 씁니다.
+# (비밀번호는 남이 입력하지 않으므로 형식이 달라도 됩니다.)
+DEMO_PIN = '1234'
 DEMO_PASSWORD = 'password'
-
-# 채팅 시나리오만 둡니다.
-# 길찾기 · 은행 창구는 대면 번역기 시나리오라 대화방을 만들지 않습니다.
-# (번역기 모드는 대화방 없이 그 자리에서 번역합니다.)
-CONVERSATIONS = [
-    ('친구 채팅', '👫', '일상 · 티키타카', 'FRIEND', ['민지', '채진']),
-    ('병원 알림', '🏥', '중요 알림 · 건강검진', 'HOSPTL', ['민지', '○○병원']),
-]
 
 
 class Command(BaseCommand):
-    help = '시연용 계정 · 대화 · 수어 사전을 만듭니다.'
+    help = '시연용 계정 · 수어 사전을 만듭니다. (대화방은 화면에서 직접 만듭니다.)'
 
     @transaction.atomic
     def handle(self, *args, **options):
+        # 아이디가 이모지라 Windows 기본 콘솔(cp949)에서는 출력하다 죽습니다.
+        # handle이 atomic이라 출력 한 줄 때문에 시드 전체가 롤백됩니다 — 화면에
+        # 글자를 예쁘게 찍는 일이 데이터를 심는 일을 망치면 안 됩니다.
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
         users = {}
         for nickname, role in DEMO_USERS:
             user, created = User.objects.get_or_create(
@@ -109,18 +119,15 @@ class Command(BaseCommand):
                 defaults={'role': role, 'onboarding_completed': True},
             )
             if created:
-                user.set_password(DEMO_PASSWORD)
+                user.set_password(
+                    DEMO_PIN if role == UserRole.SIGN_USER else DEMO_PASSWORD
+                )
                 user.save()
             users[nickname] = user
         self.stdout.write(f'사용자 {len(users)}명')
 
-        # 민지 ↔ 채진은 이미 친구인 상태로 시작합니다 (시연 시간 절약).
-        # 나머지는 친구 추가 기능을 시연할 수 있게 남겨둡니다.
-        Friendship.objects.get_or_create(
-            requester=users['민지'],
-            addressee=users['채진'],
-            defaults={'status': FriendRequestStatus.ACCEPTED},
-        )
+        # 친구 관계도 심지 않습니다. 닉네임으로 신청 → 수락 → 대화 시작이
+        # 직접 해봐야 할 흐름이라, 미리 이어두면 확인할 게 없어집니다.
 
         for keyword, title, emoji, filename in SIGN_WORDS:
             SignVideo.objects.get_or_create(
@@ -144,16 +151,9 @@ class Command(BaseCommand):
                 )
         self.stdout.write(f'빠른 키워드 {len(QUICK_KEYWORDS)}개')
 
-        for title, icon, category, code, members in CONVERSATIONS:
-            conversation, _ = Conversation.objects.get_or_create(
-                code=code,
-                defaults={'title': title, 'icon': icon, 'category': category},
-            )
-            for nickname in members:
-                ConversationParticipant.objects.get_or_create(
-                    conversation=conversation,
-                    user=users[nickname],
-                )
-        self.stdout.write(f'대화 {len(CONVERSATIONS)}개 (메시지는 비어 있음)')
-
-        self.stdout.write(self.style.SUCCESS(f'완료. 비밀번호는 전부 "{DEMO_PASSWORD}"'))
+        self.stdout.write(self.style.SUCCESS('완료.'))
+        for nickname, role in DEMO_USERS:
+            secret = DEMO_PIN if role == UserRole.SIGN_USER else DEMO_PASSWORD
+            label = '농인' if role == UserRole.SIGN_USER else '청인'
+            self.stdout.write(f'  {nickname}  ({label}) — {secret}')
+        self.stdout.write('대화방은 친구 화면에서 친구를 추가한 뒤 직접 만드세요.')

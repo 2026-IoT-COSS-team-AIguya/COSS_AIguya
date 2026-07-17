@@ -9,6 +9,7 @@ from project.errors import ApiError, ErrorCode
 from recognitions import services
 from recognitions.models import SignTranslation
 from recognitions.serializers import (
+    CaptureTargetSerializer,
     SignTranslationCreatedSerializer,
     SignTranslationCreateSerializer,
     SignTranslationDetailSerializer,
@@ -43,6 +44,34 @@ def _get_translation_for_user(translation_id, user):
         '이 결과에 접근할 권한이 없습니다.',
         status.HTTP_403_FORBIDDEN,
     )
+
+
+class CaptureTargetAPIView(APIView):
+    """지금 촬영하면 결과가 어디로 갈지 등록합니다.
+
+    촬영은 아두이노 물리 버튼이 시작하므로, 라즈베리파이는 사용자가 채팅방을
+    보고 있는지 번역기를 보고 있는지 알 수 없습니다. 화면을 옮길 때마다 프론트가
+    여기에 등록해두면, 업로드가 들어올 때 백엔드가 읽어서 라우팅합니다.
+
+    요청: {"conversation_id": 3} → 3번 대화방으로
+          {"conversation_id": null} → 번역기 모드(대면)
+    """
+
+    def put(self, request):
+        serializer = CaptureTargetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        target = services.set_capture_target(
+            request.user,
+            serializer.validated_data.get('conversation_id'),
+        )
+
+        return Response(
+            {
+                'conversation_id': target.conversation_id,
+                'mode': 'CHAT' if target.conversation_id else 'TRANSLATOR',
+            }
+        )
 
 
 class SignTranslationCreateAPIView(APIView):

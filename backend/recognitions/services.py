@@ -12,6 +12,7 @@ from conversations.services import check_conversation_access, create_translation
 from project.errors import ApiError, ErrorCode, OneM2MError
 from recognitions import ai_client, onem2m
 from recognitions.models import (
+    CaptureTarget,
     RecognizedKeyword,
     SentenceCandidate,
     SignTranslation,
@@ -25,8 +26,46 @@ logger = logging.getLogger(__name__)
 MIN_CONFIDENCE = 0.5
 
 
+def set_capture_target(user, conversation_id):
+    """이 사용자가 지금 촬영하면 결과가 어디로 갈지 등록합니다.
+
+    conversation_id가 None이면 번역기 모드(대면)입니다.
+    화면을 옮길 때마다 프론트가 호출합니다.
+    """
+    conversation = None
+
+    if conversation_id:
+        conversation = Conversation.objects.filter(pk=conversation_id).first()
+
+        if conversation is None:
+            raise ApiError(
+                ErrorCode.CONVERSATION_NOT_FOUND,
+                '대화를 찾을 수 없습니다.',
+                status.HTTP_404_NOT_FOUND,
+            )
+
+        # 남의 대화방을 촬영 대상으로 걸어두지 못하게 합니다.
+        check_conversation_access(conversation, user)
+
+    target, _ = CaptureTarget.objects.update_or_create(
+        user=user,
+        defaults={'conversation': conversation},
+    )
+    return target
+
+
+def resolve_capture_target(user):
+    """등록된 촬영 대상의 대화방. 번역기 모드거나 등록 전이면 None."""
+    target = CaptureTarget.objects.filter(user=user).select_related('conversation').first()
+
+    if target is None:
+        return None
+
+    # 대화방이 삭제되면 on_delete=SET_NULL로 null이 됩니다 — 번역기 모드로 떨어집니다.
+    return target.conversation
+
+
 def create_sign_translation(user, conversation_id, input_video, capture_id='', device_id=''):
-    # 번역기 모드(대면)는 대화방 없이 촬영합니다. conversation_id가 없으면 그 경우입니다.
     conversation = None
 
     if conversation_id:
@@ -40,6 +79,24 @@ def create_sign_translation(user, conversation_id, input_video, capture_id='', d
             )
 
         check_conversation_access(conversation, user)
+    else:
+        # 업로더가 목적지를 지정하지 않았습니다 — 라즈베리파이는 물리 버튼만 보고
+        # 촬영하므로 사용자가 어느 화면을 보고 있는지 알 수 없습니다. 대신 화면이
+        # 등록해둔 대상을 여기서 읽습니다. 등록 전이면 None → 번역기 모드입니다.
+        conversation = resolve_capture_target(user)
+
+        # 등록해둔 사이에 대화방에서 나갔을 수 있습니다. 그대로 올리면 권한 없는
+        # 방에 메시지가 생기므로, 조용히 번역기 모드로 되돌립니다.
+        if conversation is not None:
+            try:
+                check_conversation_access(conversation, user)
+            except ApiError:
+                logger.info(
+                    '촬영 대상 대화 %s 접근 불가 — 번역기 모드로 전환 (user=%s)',
+                    conversation.id,
+                    user.id,
+                )
+                conversation = None
 
     # 27장: 동일한 capture_id가 중복 처리되지 않도록 합니다.
     if capture_id and SignTranslation.objects.filter(capture_id=capture_id).exists():

@@ -47,3 +47,9 @@ class SignVideoSequencePreviewSerializer(serializers.Serializer):
         child=serializers.CharField(max_length=50),
         allow_empty=False,
     )
+
+
+class SentenceToSequenceSerializer(serializers.Serializer):
+    """자유 문장 입력. 쉼표로 끊지 않고 그냥 문장을 씁니다."""
+
+    sentence = serializers.CharField(max_length=500, trim_whitespace=True)

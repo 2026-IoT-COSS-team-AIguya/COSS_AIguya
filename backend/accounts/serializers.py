@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 
-from accounts.models import Friendship, User, UserRole
+from accounts.models import Friendship, User, UserRole, nickname_validator
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -14,7 +14,14 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class SignupSerializer(serializers.ModelSerializer):
-    nickname = serializers.CharField(source='username', max_length=30)
+    # 농인은 이모지 조합, 청인은 글자 — 둘 다 이 한 필드에 들어옵니다.
+    nickname = serializers.CharField(
+        source='username',
+        max_length=30,
+        validators=[nickname_validator],
+    )
+    # 농인은 숫자 PIN을 씁니다. 어느 쪽이든 여기서는 형식을 강제하지 않고
+    # 화면이 입력 방식을 정합니다 — 역할과 인증 형식을 묶으면 나중에 바꾸기 어렵습니다.
     password = serializers.CharField(write_only=True, min_length=4)
     role = serializers.ChoiceField(choices=UserRole.choices)
 
@@ -22,7 +29,10 @@ class SignupSerializer(serializers.ModelSerializer):
         model = User
         fields = ['nickname', 'password', 'role']
 
-    def validate_username(self, value):
+    # DRF는 source가 아니라 **필드 이름**으로 validate_<이름>을 찾습니다.
+    # validate_username으로 두면 영영 호출되지 않아, 중복 닉네임이 검사를 통과한 뒤
+    # DB UNIQUE 제약에 부딪혀 500이 납니다.
+    def validate_nickname(self, value):
         value = value.strip()
         if not value:
             raise serializers.ValidationError('닉네임을 입력해주세요.')
@@ -47,7 +57,7 @@ class LoginSerializer(serializers.Serializer):
 
 
 class NicknameUpdateSerializer(serializers.Serializer):
-    nickname = serializers.CharField(max_length=30)
+    nickname = serializers.CharField(max_length=30, validators=[nickname_validator])
 
     def validate_nickname(self, value):
         value = value.strip()

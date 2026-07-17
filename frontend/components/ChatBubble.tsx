@@ -16,12 +16,14 @@ export function ChatBubble({
   index,
   currentUser,
   lookup,
+  matchInText,
   onOpenSequence,
 }: {
   message: Message;
   index: number;
   currentUser: User;
   lookup: (keyword: string) => SignVideo;
+  matchInText: (text: string) => SignVideo[];
   onOpenSequence: (
     title: string,
     sequence: SignVideoSequenceItem[],
@@ -29,9 +31,17 @@ export function ChatBubble({
   ) => void;
 }) {
   const isMine = message.sender.id === currentUser.id;
+  const isSignUser = currentUser.role === "SIGN_USER";
   const displayName = isMine
     ? `${currentUser.nickname} · 나`
     : message.sender.nickname;
+
+  // 농인 화면에서 상대가 보낸 맨 텍스트는 가장 읽기 어려운 형태입니다.
+  // 문장 안의 사전 단어를 이모지로 뽑아 붙여줍니다.
+  const textEmojis =
+    isSignUser && !isMine && message.type === "TEXT"
+      ? matchInText(message.text ?? "")
+      : [];
 
   return (
     <div
@@ -170,9 +180,33 @@ export function ChatBubble({
 
         {message.type === "TEXT" && (
           <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(15,23,42,0.12)]">
+            {/* 농인 화면: 문장에서 찾은 단어를 큰 이모지로 먼저 보여줍니다. */}
+            {textEmojis.length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2 rounded-[24px] bg-[radial-gradient(circle_at_20%_0%,rgba(56,189,248,0.22),transparent_32%),linear-gradient(135deg,#071430,#0B1F4E)] p-4 text-4xl">
+                {textEmojis.map((video) => (
+                  <span key={video.keyword} title={video.title}>
+                    {video.emoji}
+                  </span>
+                ))}
+              </div>
+            )}
+
             <p className="text-2xl font-black leading-relaxed text-slate-900">
               {message.text}
             </p>
+
+            {textEmojis.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {textEmojis.map((video) => (
+                  <KeywordTag
+                    key={video.keyword}
+                    keyword={video.keyword}
+                    emoji={video.emoji}
+                    title={video.title}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

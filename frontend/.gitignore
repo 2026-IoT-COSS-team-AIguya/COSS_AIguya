@@ -41,3 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# 실제 값이 든 파일은 커밋하지 않습니다 (.env.local 에는 Vercel 토큰도 들어옵니다).
+.env*
+# 다만 예시 파일은 커밋해야 새로 받은 사람이 뭘 채울지 압니다.
+!.env.example

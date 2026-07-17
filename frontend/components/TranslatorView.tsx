@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 
+import { CaptureButton } from "@/components/CaptureButton";
 import { ActionButton, KeywordTag, Panel } from "@/components/ui";
 import { useLatestTranslation } from "@/hooks/useLatestTranslation";
-import { previewSignVideoSequence } from "@/lib/api/endpoints";
+import { sentenceToSignSequence } from "@/lib/api/endpoints";
 import { toUserMessage } from "@/lib/api/errors";
 import { translationStatusLabel } from "@/lib/types";
 import type {
@@ -31,46 +32,45 @@ export function TranslatorView({
 }) {
   const isSignUser = currentUser.role === "SIGN_USER";
 
-  // 촬영은 아두이노 물리 버튼이 시작합니다. 화면은 결과를 지켜보기만 합니다.
+  // 촬영은 화면의 버튼과 아두이노 물리 버튼 둘 다에서 시작됩니다. 어느 쪽이든
+  // 업로드 응답으로 id를 받을 수 없는 경우가 있어(기기는 화면과 별개로 움직입니다),
+  // 화면은 "가장 최근 촬영"을 폴링해서 보여줍니다.
   const { translation, isSlow } = useLatestTranslation(true);
 
-  const [keywordInput, setKeywordInput] = useState("은행, 번호, 받다");
+  const [sentence, setSentence] = useState("은행에서 번호표 받으세요");
   const [sequence, setSequence] = useState<SignVideoSequenceItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // 사전에 겹치는 단어가 하나도 없을 때. 오류가 아니라 빈 결과입니다.
+  const [noMatch, setNoMatch] = useState(false);
 
   const handleGenerate = async () => {
-    const keywords = keywordInput
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
+    const text = sentence.trim();
 
-    if (keywords.length === 0) {
+    if (!text) {
       return;
     }
 
     setLoading(true);
     setError(null);
+    setNoMatch(false);
 
     try {
-      // 명세 7.2: 백엔드가 요청받은 키워드 순서를 유지해 돌려줍니다.
-      setSequence(await previewSignVideoSequence(keywords));
+      // 조사·어순은 AI가 걷어내고, 사전 안의 키워드만 순서대로 돌려줍니다.
+      const result = await sentenceToSignSequence(text);
+      setSequence(result.sequence);
+      setNoMatch(result.keywords.length === 0);
     } catch (cause) {
       setError(toUserMessage(cause));
+      setSequence([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // 빠른 키워드는 문장을 처음부터 쓰기 번거로울 때 쓰는 보조입니다.
   const appendKeyword = (keyword: string) => {
-    const current = keywordInput
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-
-    if (!current.includes(keyword)) {
-      setKeywordInput([...current, keyword].join(", "));
-    }
+    setSentence((current) => (current.trim() ? `${current.trim()} ${keyword}` : keyword));
   };
 
   const analyzing =
@@ -92,7 +92,16 @@ export function TranslatorView({
             수어 영상 → 텍스트
           </h3>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            버튼을 누르면 💡 LED가 켜지고 📷 카메라가 촬영을 시작합니다.
+            화면의 촬영 버튼을 누르거나, 🔘 아두이노 버튼을 눌러도 됩니다.
+          </p>
+        </div>
+
+        {/* 하드웨어가 없는 자리에서도 시연할 수 있어야 합니다. 같은 API를 쓰는
+            대체 경로라, 기기가 붙으면 둘 다 동작합니다. */}
+        <div className="mb-5 flex items-center gap-3">
+          <CaptureButton conversationId={null} label="🎥 수어 촬영" />
+          <p className="text-xs leading-5 text-slate-400">
+            대화방 없이 이 자리에서 바로 번역합니다.
           </p>
         </div>
 
@@ -101,7 +110,7 @@ export function TranslatorView({
           <div className="rounded-[28px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
             <p className="text-5xl">🔘</p>
             <p className="mt-4 text-base font-black text-slate-700">
-              버튼을 눌러 촬영을 시작하세요
+              촬영을 시작하세요
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-400">
               촬영이 끝나면 이 자리에 인식 결과가 나타납니다.
@@ -221,7 +230,7 @@ export function TranslatorView({
             텍스트 → 수어 영상
           </h3>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            키워드를 입력하면 대응되는 수어 영상을 순서대로 보여줍니다.
+            하고 싶은 말을 문장으로 쓰면 🧠 AI가 수어 단어로 바꿔줍니다.
           </p>
         </div>
 
@@ -246,24 +255,49 @@ export function TranslatorView({
 
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-slate-700">
-              키워드 입력 (쉼표로 구분)
+              문장 입력
             </span>
-            <input
-              value={keywordInput}
-              onChange={(event) => setKeywordInput(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
-              placeholder="예: 은행, 번호, 받다"
+            <textarea
+              value={sentence}
+              onChange={(event) => setSentence(event.target.value)}
+              onKeyDown={(event) => {
+                // 줄바꿈은 Shift+Enter. 그냥 Enter는 바로 생성입니다.
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  handleGenerate();
+                }
+              }}
+              rows={2}
+              className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+              placeholder="예: 은행에서 번호표 받으세요"
             />
+            <span className="mt-2 block text-xs text-slate-400">
+              쉼표로 끊지 않아도 됩니다. 조사·어순은 AI가 알아서 정리합니다.
+            </span>
           </label>
 
-          <ActionButton onClick={handleGenerate} disabled={loading}>
-            {loading ? "⏳ 생성 중…" : "🔄 키워드 시퀀스 생성"}
+          <ActionButton onClick={handleGenerate} disabled={loading || !sentence.trim()}>
+            {loading ? "🧠 AI가 분석 중…" : "🔄 수어로 바꾸기"}
           </ActionButton>
 
           {error && (
             <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">
               {error}
             </p>
+          )}
+
+          {/* 문장 분석은 됐는데 사전에 겹치는 단어가 없는 경우 */}
+          {noMatch && (
+            <div className="rounded-[24px] border border-dashed border-amber-300 bg-amber-50 p-5 text-center">
+              <p className="text-3xl">🤔</p>
+              <p className="mt-3 text-sm font-black text-amber-900">
+                이 문장에서 수어로 바꿀 수 있는 단어를 못 찾았어요
+              </p>
+              <p className="mt-2 text-xs leading-5 text-amber-700">
+                수어 사전에 있는 단어로 다시 말해보세요. 위의 빠른 키워드를
+                참고하시면 좋습니다.
+              </p>
+            </div>
           )}
 
           {sequence.length > 0 && (

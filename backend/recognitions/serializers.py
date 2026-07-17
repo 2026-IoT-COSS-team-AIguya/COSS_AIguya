@@ -77,6 +77,15 @@ class SignTranslationCreateSerializer(serializers.Serializer):
         return value
 
 
+class CaptureTargetSerializer(serializers.Serializer):
+    """지금 촬영하면 결과가 갈 곳.
+
+    conversation_id를 null로 주면 번역기 모드(대면)입니다.
+    """
+
+    conversation_id = serializers.IntegerField(required=False, allow_null=True)
+
+
 class SignTranslationResultSerializer(serializers.Serializer):
     """인-백이 콜백으로 보내는 결과.
 

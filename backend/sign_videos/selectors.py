@@ -20,6 +20,14 @@ def find_sign_videos_by_keywords(keywords):
     return {video.keyword: video for video in videos}
 
 
+def get_sign_video_keywords():
+    """수어로 표현 가능한 단어 전체. Gemini에게 줄 vocab입니다."""
+    return list(
+        SignVideo.objects.filter(is_active=True)
+        .values_list('keyword', flat=True)
+    )
+
+
 def search_sign_videos(keyword=None):
     queryset = SignVideo.objects.filter(is_active=True)
 

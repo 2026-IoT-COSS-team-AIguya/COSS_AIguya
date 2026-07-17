@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchMessages } from "@/lib/api/endpoints";
-import { ApiError } from "@/lib/api/errors";
+import { isAuthError } from "@/lib/api/errors";
 import type { Message } from "@/lib/types";
 
 // 명세 12장: 채팅 메시지는 화면 활성화 중 2초 간격으로 폴링합니다.
@@ -61,7 +61,7 @@ export function useMessagePolling(
           return;
         }
 
-        if (cause instanceof ApiError && cause.status === 401) {
+        if (isAuthError(cause)) {
           onAuthExpired();
         }
 

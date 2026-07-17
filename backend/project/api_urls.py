@@ -68,6 +68,8 @@ urlpatterns = [
     ),
 
     # --- translations ---
+    # 촬영 버튼을 눌렀을 때 결과가 갈 곳(대화방 / 번역기)을 화면이 등록해둡니다.
+    path('capture-target/', recognitions_views.CaptureTargetAPIView.as_view()),
     path(
         'sign-translations/',
         recognitions_views.SignTranslationCreateAPIView.as_view(),
@@ -96,6 +98,11 @@ urlpatterns = [
     path(
         'sign-videos/sequence-preview/',
         sign_videos_views.SignVideoSequencePreviewAPIView.as_view(),
+    ),
+    # 자유 문장을 Gemini가 사전 안의 키워드로 분해해 시퀀스까지 만들어 줍니다.
+    path(
+        'sign-videos/sentence-to-sequence/',
+        sign_videos_views.SentenceToSequenceAPIView.as_view(),
     ),
     path(
         'sign-videos/<int:video_id>/',

@@ -5,3 +5,6 @@ django-cors-headers==4.9.0
 pillow==12.3.0
 python-dotenv==1.2.2
 requests==2.34.2
+# 문장 → 수어 키워드 분해 (project/gemini.py).
+# ai/ 쪽 requirements-ai.txt와 같은 SDK를 씁니다. torch·mediapipe는 필요 없습니다.
+google-genai==2.12.1
