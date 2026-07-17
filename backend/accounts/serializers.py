@@ -22,7 +22,17 @@ class SignupSerializer(serializers.ModelSerializer):
     )
     # 농인은 숫자 PIN을 씁니다. 어느 쪽이든 여기서는 형식을 강제하지 않고
     # 화면이 입력 방식을 정합니다 — 역할과 인증 형식을 묶으면 나중에 바꾸기 어렵습니다.
-    password = serializers.CharField(write_only=True, min_length=4)
+    #
+    # 이 문구는 프론트가 그대로 화면에 띄웁니다(fields로 전달). DRF 기본 문구
+    # ("이 필드의 글자 수가 적어도 4 이상인지 확인하세요")는 사람이 읽을 말이 아닙니다.
+    password = serializers.CharField(
+        write_only=True,
+        min_length=4,
+        error_messages={
+            'min_length': '비밀번호는 4자 이상이어야 합니다.',
+            'blank': '비밀번호를 입력해주세요.',
+        },
+    )
     role = serializers.ChoiceField(choices=UserRole.choices)
 
     class Meta:
