@@ -66,9 +66,32 @@ export class ApiError extends Error {
     this.fields = body.fields;
   }
 
-  // 화면에 띄울 문구. 모르는 code면 백엔드 기본 message로 물러섭니다.
+  /** 화면에 띄울 문구. 모르는 code면 백엔드 기본 message로 물러섭니다.
+   *
+   * fields가 있으면 그쪽을 먼저 씁니다. code 기반 문구는 "입력값을 확인해주세요"처럼
+   * 무엇이 잘못됐는지 알려주지 않는데, 정작 이유("이미 사용 중인 닉네임입니다")는
+   * fields에 담겨 오기 때문입니다. 그걸 버리면 사용자는 뭘 고쳐야 할지 모른 채
+   * 같은 걸 반복하게 됩니다.
+   */
   get userMessage(): string {
+    const details = this.fieldMessages;
+
+    if (details.length > 0) {
+      return details.join(" ");
+    }
+
     return errorMessages[this.code] ?? this.message ?? fallbackMessage;
+  }
+
+  /** fields 안의 문구들을 평평하게 폅니다. 없으면 빈 배열. */
+  get fieldMessages(): string[] {
+    if (!this.fields) {
+      return [];
+    }
+
+    return Object.values(this.fields)
+      .flat()
+      .filter((item): item is string => typeof item === "string" && item.length > 0);
   }
 }
 

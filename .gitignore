@@ -295,3 +295,11 @@ runs/
 datasets/
 # 라즈베리파이가 촬영한 임시 영상 (업로드 후 삭제되지만 남을 수 있음)
 hardware/raspberry_pi/captures/
+.vercel
+
+# 실제 값이 든 파일(.env, .env.local)은 어느 폴더에 있든 커밋하지 않습니다.
+.env*
+# 다만 예시 파일은 커밋해야 새로 받은 사람이 뭘 채울지 압니다.
+# (이 예외가 없으면 .env* 가 .env.example 까지 조용히 삼킵니다.)
+!.env.example
+!**/.env.example
