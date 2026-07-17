@@ -84,9 +84,11 @@ export default function Page() {
 
   // 아직 아무 방도 안 골랐으면 맨 위(= 가장 최근) 대화를 띄웁니다.
   // 이미 고른 방이 있으면 폴링으로 순서가 바뀌어도 건드리지 않습니다.
-  useEffect(() => {
-    setSelectedId((current) => current ?? conversations[0]?.id ?? null);
-  }, [conversations]);
+  const selectedConversationId =
+    selectedId !== null &&
+    conversations.some((conversation) => conversation.id === selectedId)
+      ? selectedId
+      : conversations[0]?.id ?? null;
 
   // 촬영 버튼(아두이노)을 눌렀을 때 결과가 어디로 갈지 서버에 등록해둡니다.
   // 채팅 화면에서 방을 열어두고 있으면 그 방으로, 번역기 화면을 보고 있으면
@@ -95,7 +97,9 @@ export default function Page() {
   // 채팅 화면인데 아직 방을 못 고른 경우(대화 0개)는 등록할 대화가 없으므로
   // 번역기 모드로 둡니다 — 그래야 촬영분이 사라지지 않고 번역기 화면에 남습니다.
   const captureConversationId =
-    activeMenu === "chat" && selectedId !== null ? selectedId : null;
+    activeMenu === "chat" && selectedConversationId !== null
+      ? selectedConversationId
+      : null;
 
   useEffect(() => {
     if (!currentUser) {
@@ -291,7 +295,7 @@ export default function Page() {
             {activeMenu === "chat" && (
               <ChatView
                 conversations={conversations}
-                selectedId={selectedId}
+                selectedId={selectedConversationId}
                 onSelectConversation={setSelectedId}
                 currentUser={currentUser}
                 quickKeywords={quickKeywords}

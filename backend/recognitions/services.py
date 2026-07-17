@@ -3,7 +3,9 @@
 import logging
 import threading
 import time
+from urllib.parse import urljoin
 
+from django.conf import settings
 from django.db import close_old_connections, transaction
 from rest_framework import status
 
@@ -132,6 +134,12 @@ def build_video_url(translation, request=None):
     서빙하는 media URL을 씁니다.
     """
     url = translation.input_video.url
+
+    if settings.MEDIA_PUBLIC_BASE_URL:
+        return urljoin(
+            settings.MEDIA_PUBLIC_BASE_URL.rstrip('/') + '/',
+            url.lstrip('/'),
+        )
 
     if request is not None:
         return request.build_absolute_uri(url)
