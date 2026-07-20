@@ -12,6 +12,7 @@ import {
   sentenceToSignSequence,
 } from "@/lib/api/endpoints";
 import { toUserMessage } from "@/lib/api/errors";
+import { withDisplayName } from "@/lib/types";
 import type {
   Conversation,
   QuickKeyword,
@@ -192,7 +193,12 @@ export function ChatView({
                   <p className="mt-0.5 truncate text-xs font-bold text-slate-500">
                     {conversation.participants
                       .filter((participant) => participant.id !== currentUser.id)
-                      .map((participant) => participant.nickname)
+                      .map((participant) =>
+                        withDisplayName(
+                          participant.nickname,
+                          participant.display_name
+                        )
+                      )
                       .join(", ")}
                   </p>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Message, SignVideo, SignVideoSequenceItem, User } from "@/lib/types";
-import { translationStatusLabel } from "@/lib/types";
+import { translationStatusLabel, withDisplayName } from "@/lib/types";
 import { Avatar, KeywordTag } from "@/components/ui";
 
 function formatTime(iso: string) {
@@ -33,8 +33,8 @@ export function ChatBubble({
   const isMine = message.sender.id === currentUser.id;
   const isSignUser = currentUser.role === "SIGN_USER";
   const displayName = isMine
-    ? `${currentUser.nickname} · 나`
-    : message.sender.nickname;
+    ? `${withDisplayName(currentUser.nickname, currentUser.display_name)} · 나`
+    : withDisplayName(message.sender.nickname, message.sender.display_name);
 
   // 농인 화면에서 상대가 보낸 맨 텍스트는 가장 읽기 어려운 형태입니다.
   // 문장 안의 사전 단어를 이모지로 뽑아 붙여줍니다.

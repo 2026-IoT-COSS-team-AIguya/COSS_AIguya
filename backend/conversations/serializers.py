@@ -9,12 +9,13 @@ from sign_videos.serializers import SignVideoSerializer
 class ConversationParticipantSerializer(serializers.Serializer):
     id = serializers.IntegerField(source='user.id')
     nickname = serializers.CharField(source='user.username')
+    display_name = serializers.CharField(source='user.display_name')
     role = serializers.CharField(source='user.role')
 
 
 class MessageSenderSerializer(UserSerializer):
     class Meta(UserSerializer.Meta):
-        fields = ['id', 'nickname', 'role']
+        fields = ['id', 'nickname', 'display_name', 'role']
 
 
 class MessageSequenceItemSerializer(serializers.Serializer):

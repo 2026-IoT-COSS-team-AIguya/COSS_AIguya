@@ -10,7 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'nickname', 'role', 'onboarding_completed']
+        fields = ['id', 'nickname', 'display_name', 'role', 'onboarding_completed']
 
 
 class SignupSerializer(serializers.ModelSerializer):
@@ -78,6 +78,16 @@ class NicknameUpdateSerializer(serializers.Serializer):
         if User.objects.filter(username=value).exclude(pk=user.pk).exists():
             raise serializers.ValidationError('이미 사용 중인 닉네임입니다.')
         return value
+
+
+class DisplayNameUpdateSerializer(serializers.Serializer):
+    # 선택 항목입니다. 빈 문자열을 보내면 표시 이름을 지웁니다.
+    display_name = serializers.CharField(
+        max_length=20,
+        required=True,
+        allow_blank=True,
+        trim_whitespace=True,
+    )
 
 
 class FriendshipSerializer(serializers.ModelSerializer):

@@ -19,7 +19,7 @@ import {
   setCaptureTarget,
 } from "@/lib/api/endpoints";
 import { firstGrapheme } from "@/lib/graphemes";
-import { roleLabel } from "@/lib/types";
+import { roleLabel, withDisplayName } from "@/lib/types";
 import type { QuickKeyword, SignVideoSequenceItem, User } from "@/lib/types";
 
 type MenuType = "chat" | "friends" | "translator" | "settings";
@@ -166,7 +166,7 @@ export default function Page() {
         <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_15%_18%,rgba(56,189,248,0.24),transparent_30%),linear-gradient(135deg,#07111f_0%,#0b1f4e_48%,#0f2a5f_100%)]">
           <div className="animate-fade-up text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-2xl font-black text-slate-950 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
-              손
+              잇
             </div>
             <p className="mt-5 text-sm font-bold text-sky-100/70">불러오는 중…</p>
           </div>
@@ -198,12 +198,12 @@ export default function Page() {
           <div className="relative z-10 flex h-full flex-col">
             <div className="animate-fade-up">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/95 text-2xl font-black text-slate-900 shadow-[0_16px_40px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1">
-                손
+                잇
               </div>
 
-              <h1 className="text-[1.9rem] font-black tracking-tight">손말이음</h1>
+              <h1 className="text-[1.9rem] font-black tracking-tight">잇손</h1>
               <p className="mt-1 text-sm font-semibold text-sky-100/90">
-                Visual Sign Bridge
+                Itson
               </p>
             </div>
 
@@ -265,7 +265,7 @@ export default function Page() {
                   "이모지 아이디로 친구를 찾아 대화를 시작합니다."}
                 {activeMenu === "translator" &&
                   "🎥 촬영하면 결과가 여기에 나타납니다. 대화방 없이 그 자리에서 번역합니다."}
-                {activeMenu === "settings" && "계정 정보와 구현 현황을 확인합니다."}
+                {activeMenu === "settings" && "계정 정보와 연결 상태를 확인합니다."}
               </p>
             </div>
 
@@ -281,7 +281,7 @@ export default function Page() {
                 </div>
                 <div className="hidden leading-tight xl:block">
                   <p className="text-xs font-black text-white">
-                    {currentUser.nickname}
+                    {withDisplayName(currentUser.nickname, currentUser.display_name)}
                   </p>
                   <p className="mt-0.5 text-[11px] font-medium text-sky-100/70">
                     user #{currentUser.id}

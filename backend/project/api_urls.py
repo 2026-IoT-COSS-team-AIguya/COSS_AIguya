@@ -18,6 +18,7 @@ urlpatterns = [
     path('auth/logout/', accounts_views.LogoutAPIView.as_view()),
     path('users/me/', accounts_views.MyProfileAPIView.as_view()),
     path('users/me/nickname/', accounts_views.NicknameUpdateAPIView.as_view()),
+    path('users/me/display-name/', accounts_views.DisplayNameUpdateAPIView.as_view()),
     path(
         'users/me/onboarding-complete/',
         accounts_views.OnboardingCompleteAPIView.as_view(),

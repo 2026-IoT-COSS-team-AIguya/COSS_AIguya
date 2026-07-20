@@ -43,7 +43,7 @@ CONTAINER_RECOGNITION_RESULTS = 'recognition_results'
 CONTAINER_MAX_BYTE_SIZE = 16384
 
 # 과제 식별용 라벨
-LABEL = '손말이음'
+LABEL = '잇손'
 
 
 def is_configured():
