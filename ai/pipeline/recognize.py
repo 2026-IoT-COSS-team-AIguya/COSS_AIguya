@@ -45,9 +45,16 @@ def predict_sign_from_video(video_path: str, top_k: int = 3, n_sentences: int = 
 
     top_words = infer.predict(video_path, top_k=top_k)  # [(word, confidence), ...]
 
-    import generate_sentence
+    # 문장 생성(LLM)은 키워드 인식과 별개 단계다 -- LLM 호출이 실패해도(쿼터
+    # 초과, 네트워크 문제, SSL 등) 이미 성공한 키워드 인식 결과까지 버리지
+    # 않고, 문장 후보만 빈 채로 돌려준다.
+    try:
+        import generate_sentence
 
-    sentences = generate_sentence.generate_sentence_candidates([list(top_words)], n=n_sentences)
+        sentences = generate_sentence.generate_sentence_candidates([list(top_words)], n=n_sentences)
+    except Exception as e:
+        print(f"[recognize] 문장 생성 실패(키워드는 정상 반환): {e}")
+        sentences = []
 
     processing_ms = int((time.time() - t0) * 1000)
 

@@ -80,8 +80,10 @@ def recognize(req: RecognizeRequest):
         try:
             result = predict_sign_from_video(str(tmp_path))
         except FileNotFoundError as e:
-            # enroll.py로 시연자 등록(ai/models/enrolled_prototypes.npz)이 안 돼있으면 여기로 옴.
-            return _fail("AI_INFERENCE_FAILED", f"등록된 시연자 데이터 없음: {e}", start)
+            # enroll.py로 시연자 등록(ai/models/enrolled_prototypes.npz)이 안 돼있으면
+            # 여기로 옴 -- 다만 FileNotFoundError는 다른 원인(예: SSL 인증서 경로
+            # 문제)으로도 날 수 있어서, 실제 원인을 그대로 노출해 오해를 줄인다.
+            return _fail("AI_INFERENCE_FAILED", f"파일 없음(시연자 등록 미완료일 수 있음): {e}", start)
         except Exception as e:
             return _fail("AI_INFERENCE_FAILED", str(e), start)
 
