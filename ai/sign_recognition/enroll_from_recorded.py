@@ -7,6 +7,12 @@ enroll.py는 시연자가 새로 녹화한 영상이 있어야 하는데, 이번
 DEMO_PERSONS에 있는 사람만 쓰고(예: 시연 안 하는 C는 제외), AIHub 유래 데이터는
 특정 시연자 것이 아니라서 등록에는 안 쓴다(학습에만 쓰였음).
 
+기본적으로 등록 단어를 DEMO_SCENARIOS.md에 실제로 쓰이는 45개로 제한한다
+(ONLY_DEMO_WORDS=True). 후보 단어 풀이 78개->45개로 줄면 그만큼 다른 단어와
+헷갈릴 여지가 줄어서 top-1 정확도가 재학습 없이 바로 올라간다. 대신 이
+45개 밖의 단어는 등록에서 아예 빠지므로 인식 요청이 와도 후보에 안 뜬다
+-- 데모 스크립트 밖의 단어를 테스트하려면 ONLY_DEMO_WORDS=False로 바꿀 것.
+
 사용법:
     1. 아래 DEMO_PERSONS를 실제 시연자로 맞추기 (기본값: ["A", "B", "D"])
     2. conda activate coss && python ai/sign_recognition/enroll_from_recorded.py
@@ -25,6 +31,16 @@ from train_front_only import scan_f_only_instances
 
 DEMO_PERSONS = {"A", "B", "D"}
 
+ONLY_DEMO_WORDS = False
+DEMO_WORDS = {
+    "친구", "놀다", "기대", "회사", "일", "잠깐", "괜찮다", "기다리다", "죄송", "빨리",
+    "가능", "좋다", "어디", "여기", "만나다", "반갑다", "대박", "신나다",
+    "홍수", "위험", "계단", "쓰러지다", "도움받다", "119", "구조", "확인",
+    "은행", "대출", "알다", "신분증", "번호", "받다", "카드", "맞다", "감사",
+    "얼마", "저기", "돈", "1회",
+    "모르다", "가깝다", "오른쪽", "가다", "학교", "왼쪽",
+}
+
 MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "sign_encoder.pt"
 OUT_PATH = Path(__file__).resolve().parent.parent / "models" / "enrolled_prototypes.npz"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -41,6 +57,8 @@ def load_model() -> SignEncoder:
 def main():
     instances = scan_f_only_instances()
     demo_instances = [(w, p, person) for w, p, person in instances if person in DEMO_PERSONS]
+    if ONLY_DEMO_WORDS:
+        demo_instances = [(w, p, person) for w, p, person in demo_instances if w in DEMO_WORDS]
 
     if not demo_instances:
         print(f"DEMO_PERSONS({DEMO_PERSONS})에 해당하는 촬영본이 없습니다. ai/data/recorded/ 확인 필요.")
@@ -65,7 +83,8 @@ def main():
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     np.savez(OUT_PATH, words=np.array(words), embeddings=protos)
     print(f"\n등록 완료: 단어 {len(words)}개 -> {OUT_PATH}")
-    missing = sorted(set(w for w, _, _ in instances) - set(words))
+    universe = DEMO_WORDS if ONLY_DEMO_WORDS else set(w for w, _, _ in instances)
+    missing = sorted(universe - set(words))
     if missing:
         print(f"주의: 시연자 {sorted(DEMO_PERSONS)} 촬영본이 없는 단어 {len(missing)}개: {missing}")
 
