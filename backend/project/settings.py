@@ -191,6 +191,11 @@ CORS_ALLOW_CREDENTIALS = True
 AI_SERVER_URL = os.getenv('AI_SERVER_URL', '')
 AI_TIMEOUT_SECONDS = int(os.getenv('AI_TIMEOUT_SECONDS', '30'))
 
+# 텍스트 -> 수어 영상 API의 base URL. 영상 인식용 AI_SERVER_URL은 /recognize까지
+# 포함하므로 섞어 쓰지 않습니다.
+AI_SIGN_SERVER_BASE_URL = os.getenv('AI_SIGN_SERVER_BASE_URL', '').rstrip('/')
+AI_SIGN_TIMEOUT_SECONDS = int(os.getenv('AI_SIGN_TIMEOUT_SECONDS', '30'))
+
 # 문장 → 수어 키워드 분해 (project/gemini.py).
 # ai/sentence_generation 과 같은 키·같은 모델을 씁니다. 비어 있으면 해당 기능만
 # AI_SERVER_UNAVAILABLE로 막히고, 나머지 화면은 그대로 동작합니다.

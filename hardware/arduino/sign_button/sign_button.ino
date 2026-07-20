@@ -12,6 +12,7 @@
  * 프로토콜 (115200 baud, 줄바꿈 구분)
  *   보냄 : READY            부팅 완료
  *          BUTTON           버튼이 눌림 -> 촬영 시작해라
+ *          BUTTON_STOP      버튼이 다시 눌림 -> 촬영을 종료해라
  *   받음 : LED:ON           LED 켜기
  *          LED:OFF          LED 끄기
  *          STATUS:RECORDING 촬영 중   (LED 켜짐)
@@ -28,7 +29,7 @@ const unsigned long DEBOUNCE_MS = 50;
 
 // 촬영 중에 버튼을 또 눌러도 무시하는 시간. 라즈베리파이가 STATUS:DONE/FAIL을
 // 보내주면 그때 풀리지만, 응답이 없어도 이 시간이 지나면 다시 받습니다.
-const unsigned long LOCKOUT_MS = 15000;
+const unsigned long LOCKOUT_MS = 60000;
 
 enum LedMode {
   LED_OFF,
@@ -45,6 +46,7 @@ int buttonState = HIGH;
 unsigned long lastDebounceTime = 0;
 
 bool capturing = false;
+bool recordingActive = false;
 unsigned long captureStartedAt = 0;
 
 String inputBuffer = "";
@@ -85,18 +87,23 @@ void handleCommand(const String &command) {
     ledMode = LED_OFF;
     setLed(false);
   } else if (command == "STATUS:RECORDING") {
+    recordingActive = true;
     ledMode = LED_ON;
     setLed(true);
   } else if (command == "STATUS:BUSY") {
-    ledMode = LED_BLINK_SLOW;
+    recordingActive = false;
+    ledMode = LED_OFF;
+    setLed(false);
   } else if (command == "STATUS:DONE") {
     ledMode = LED_OFF;
-    blink(3, 80, 80);
+    setLed(false);
     capturing = false;
+    recordingActive = false;
   } else if (command == "STATUS:FAIL") {
     ledMode = LED_OFF;
-    blink(2, 400, 200);
+    setLed(false);
     capturing = false;
+    recordingActive = false;
   }
 }
 
@@ -127,16 +134,22 @@ void readButton() {
     buttonState = reading;
 
     // INPUT_PULLUP이라 누르면 LOW입니다.
-    if (buttonState == LOW && !capturing) {
-      capturing = true;
-      captureStartedAt = millis();
+    if (buttonState == LOW) {
+      if (!capturing) {
+        capturing = true;
+        recordingActive = false;
+        captureStartedAt = millis();
 
-      // 라즈베리파이 응답을 기다리지 않고 바로 켭니다.
-      // 사용자는 누른 즉시 반응을 봐야 합니다.
-      ledMode = LED_ON;
-      setLed(true);
-
-      Serial.println("BUTTON");
+        // Pi가 1초 준비를 마친 뒤 STATUS:RECORDING을 보낼 때 LED를 켭니다.
+        Serial.println("BUTTON");
+      } else if (recordingActive) {
+        // 두 번째 버튼은 현재 촬영을 종료합니다. 완료/실패 상태를 받을 때까지
+        // 추가 버튼은 무시합니다.
+        recordingActive = false;
+        ledMode = LED_OFF;
+        setLed(false);
+        Serial.println("BUTTON_STOP");
+      }
     }
   }
 
@@ -158,6 +171,7 @@ void checkLockout() {
   // 라즈베리파이가 응답하지 않아도 영영 잠겨 있으면 안 됩니다.
   if (capturing && (millis() - captureStartedAt) > LOCKOUT_MS) {
     capturing = false;
+    recordingActive = false;
     ledMode = LED_OFF;
     setLed(false);
   }
