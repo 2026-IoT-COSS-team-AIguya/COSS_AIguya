@@ -3,6 +3,7 @@
 import secrets
 
 from django.db import transaction
+from django.db.models import Count
 from django.utils import timezone
 from rest_framework import status
 
@@ -50,15 +51,8 @@ def check_conversation_access(conversation, user):
 
 @transaction.atomic
 def create_conversation(user, title, icon='💬', category='', participant_nicknames=()):
-    conversation = Conversation.objects.create(
-        title=title,
-        icon=icon,
-        category=category,
-        code=generate_conversation_code(),
-    )
-
-    ConversationParticipant.objects.create(conversation=conversation, user=user)
-
+    # 참가자(나 제외)를 먼저 확정합니다.
+    targets = []
     for nickname in participant_nicknames:
         target = get_user_by_nickname(nickname)
 
@@ -69,12 +63,55 @@ def create_conversation(user, title, icon='💬', category='', participant_nickn
                 fields={'participant_nicknames': [f'{nickname} 사용자를 찾을 수 없습니다.']},
             )
 
-        if target.id != user.id:
-            ConversationParticipant.objects.get_or_create(
-                conversation=conversation, user=target
-            )
+        if target.id != user.id and target not in targets:
+            targets.append(target)
+
+    # 1:1 대화는 같은 상대와 이미 방이 있으면 재사용합니다 — 안 그러면 양쪽이
+    # 각각 "대화"를 누를 때 같은 상대와 방이 두 개씩 생깁니다.
+    existing = _find_direct_conversation(user, targets)
+    if existing is not None:
+        return existing
+
+    conversation = Conversation.objects.create(
+        title=title,
+        icon=icon,
+        category=category,
+        code=generate_conversation_code(),
+    )
+
+    ConversationParticipant.objects.create(conversation=conversation, user=user)
+
+    for target in targets:
+        ConversationParticipant.objects.get_or_create(
+            conversation=conversation, user=target
+        )
 
     return conversation
+
+
+def _find_direct_conversation(user, targets):
+    """나와 상대 단둘(참가자 정확히 2명)인 기존 대화를 찾습니다. 없으면 None."""
+    if len(targets) != 1:
+        return None
+
+    target = targets[0]
+
+    # 나와 상대가 모두 든 대화방 후보를 먼저 추립니다.
+    candidate_ids = (
+        ConversationParticipant.objects.filter(user__in=[user, target])
+        .values('conversation')
+        .annotate(matched=Count('user', distinct=True))
+        .filter(matched=2)
+        .values_list('conversation', flat=True)
+    )
+
+    # 그중 참가자가 정확히 2명인 방(= 단둘 대화)만 재사용합니다.
+    return (
+        Conversation.objects.filter(id__in=candidate_ids)
+        .annotate(total=Count('participants'))
+        .filter(total=2)
+        .first()
+    )
 
 
 def join_conversation(user, code):
