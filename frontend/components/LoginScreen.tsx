@@ -133,11 +133,11 @@ export function LoginScreen({ onLogin }: { onLogin: (user: User) => void }) {
         <section className="flex items-center px-8 py-10 lg:px-16">
           <div className="max-w-2xl animate-fade-up">
             <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-3xl bg-white text-2xl font-black text-slate-950 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
-              손
+              잇
             </div>
 
             <p className="text-sm font-bold uppercase tracking-[0.22em] text-sky-200">
-              Visual Sign Bridge
+              Itson
             </p>
 
             <h1 className="mt-5 text-5xl font-black leading-tight tracking-[-0.05em] lg:text-6xl">
@@ -176,7 +176,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: User) => void }) {
 
             <div className="mb-5">
               <h2 className="text-3xl font-black tracking-tight">
-                {mode === "login" ? "손말이음 시작하기" : "계정 만들기"}
+                {mode === "login" ? "잇손 시작하기" : "계정 만들기"}
               </h2>
             </div>
 
@@ -320,7 +320,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: User) => void }) {
               <>
                 <div className="my-6 flex items-center gap-3">
                   <div className="h-px flex-1 bg-slate-200" />
-                  <span className="text-xs font-bold text-slate-400">데모 계정</span>
+                  <span className="text-xs font-bold text-slate-400">빠른 시작</span>
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
 
@@ -358,16 +358,16 @@ export function LoginScreen({ onLogin }: { onLogin: (user: User) => void }) {
               </>
             )}
 
-            <div className="mt-6 rounded-[24px] bg-sky-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
-                {mode === "signup" ? "아이디 만들기" : "시연 방법"}
-              </p>
-              <p className="mt-2 text-xs leading-5 text-sky-700">
-                {mode === "signup"
-                  ? `이모지를 ${MIN_ID_EMOJIS}~${MAX_ID_EMOJIS}개 골라 아이디를 만듭니다. 고른 순서가 아이디가 되니, 친구에게 알려줄 때도 이 순서 그대로 알려주세요.`
-                  : "노트북 두 대(또는 일반 창 + 시크릿 창)에서 각각 다른 계정으로 로그인하세요. 👥 친구 화면에서 서로의 이모지 아이디로 친구 신청 → 수락하면 대화를 시작할 수 있습니다."}
-              </p>
-            </div>
+            {mode === "signup" && (
+              <div className="mt-6 rounded-[24px] bg-sky-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+                  아이디 만들기
+                </p>
+                <p className="mt-2 text-xs leading-5 text-sky-700">
+                  {`이모지를 ${MIN_ID_EMOJIS}~${MAX_ID_EMOJIS}개 골라 아이디를 만듭니다. 고른 순서가 아이디가 되니, 친구에게 알려줄 때도 이 순서 그대로 알려주세요.`}
+                </p>
+              </div>
+            )}
           </div>
         </section>
       </div>

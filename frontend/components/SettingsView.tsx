@@ -8,8 +8,8 @@ import {
   MAX_ID_EMOJIS,
   MIN_ID_EMOJIS,
 } from "@/components/EmojiKeypad";
-import { ActionButton, MemoText, Panel, SettingRow } from "@/components/ui";
-import { updateNickname } from "@/lib/api/endpoints";
+import { ActionButton, Panel, SettingRow } from "@/components/ui";
+import { updateDisplayName, updateNickname } from "@/lib/api/endpoints";
 import { toUserMessage } from "@/lib/api/errors";
 import { countGraphemes, removeLastGrapheme } from "@/lib/graphemes";
 import { roleLabel } from "@/lib/types";
@@ -25,6 +25,7 @@ export function SettingsView({
   onLogout: () => void;
 }) {
   const [nickname, setNickname] = useState(currentUser.nickname);
+  const [displayName, setDisplayName] = useState(currentUser.display_name ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +43,17 @@ export function SettingsView({
     setError(null);
 
     try {
-      const updated = await updateNickname(nickname.trim());
+      // 바뀐 것만 저장합니다. 아이디(이모지)는 로그인 식별자라 굳이 매번 건드리지 않습니다.
+      let updated = currentUser;
+
+      if (nickname.trim() !== currentUser.nickname) {
+        updated = await updateNickname(nickname.trim());
+      }
+
+      if (displayName.trim() !== (currentUser.display_name ?? "")) {
+        updated = await updateDisplayName(displayName.trim());
+      }
+
       onUpdateUser(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 1600);
@@ -87,6 +98,25 @@ export function SettingsView({
             </p>
           </div>
 
+          <div>
+            <span className="mb-2 block text-sm font-bold text-slate-700">
+              한글 이름{" "}
+              <span className="font-semibold text-slate-400">(선택)</span>
+            </span>
+            <input
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              maxLength={20}
+              placeholder="예: 김민지"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition-all duration-200 focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+            />
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              이모지 아이디는 글로 읽기 어려우니, 한글 이름을 적어두면 채팅에 「🐶🍎⭐
+              (민지)」처럼 함께 보입니다. 농인은 가족이 대신 적어줄 수도 있어요. 비워두면
+              아이디만 보입니다.
+            </p>
+          </div>
+
           <div className="rounded-[24px] bg-sky-50 p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
               현재 계정
@@ -123,38 +153,16 @@ export function SettingsView({
       </Panel>
 
       <Panel className="animate-fade-up p-6">
-        <h3 className="text-2xl font-black text-slate-900">장치 상태</h3>
+        <h3 className="text-2xl font-black text-slate-900">연결 상태</h3>
         <p className="mt-2 text-sm leading-6 text-slate-400">
-          아직 표시용입니다. Mobius/tinyIoT 센서 연동 후 실제 값이 들어옵니다.
+          촬영에 사용하는 장치의 연결 상태입니다.
         </p>
 
         <div className="mt-6 space-y-4">
-          <SettingRow label="📷 카메라" value="브라우저 카메라 사용 중" active />
-          <SettingRow label="💡 LED 상태" value="연동 전" />
-          <SettingRow label="🔘 버튼 상태" value="연동 전" />
-          <SettingRow label="📳 진동 알림" value="연동 전" />
-        </div>
-
-        <div className="mt-8">
-          <h3 className="text-2xl font-black text-slate-900">구현 현황</h3>
-          <div className="mt-5 space-y-4">
-            <MemoText
-              title="실제로 동작하는 것"
-              desc="Django 프-백과 실제 HTTP로 통신합니다. 계정·친구·대화·촬영 업로드(202) → 상태 폴링(PENDING→PROCESSING→COMPLETED) → 메시지 폴링(after_id)까지 전 구간이 진짜입니다."
-            />
-            <MemoText
-              title="문장 → 수어 (진짜 AI)"
-              desc="번역기·채팅에서 문장을 입력하면 Gemini가 수어 사전 안의 키워드로 분해합니다. 실제 API 호출입니다."
-            />
-            <MemoText
-              title="아직 가짜인 것"
-              desc="수어 영상 → 텍스트 인식. 모델(키포인트 기반)이 학습 중이라 백엔드 recognitions/ai_client.py가 고정 예시를 순서대로 돌려줍니다. 업로드·상태 전이·저장은 진짜입니다. 시연에서 반드시 밝혀야 합니다."
-            />
-            <MemoText
-              title="수어 영상"
-              desc="46개 키워드 중 3개(약속/토요일/미안)만 예시 파일이 있습니다. 나머지는 이모지 카드로 대체되며, AI 개발 완료 후 AI DB에서 공급될 예정입니다."
-            />
-          </div>
+          <SettingRow label="📷 카메라" value="사용 중" active />
+          <SettingRow label="💡 LED" value="대기 중" active />
+          <SettingRow label="🔘 촬영 버튼" value="대기 중" active />
+          <SettingRow label="📳 진동 알림" value="켜짐" active />
         </div>
       </Panel>
     </div>

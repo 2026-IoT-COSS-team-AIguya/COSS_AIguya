@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts import selectors, services
 from accounts.serializers import (
+    DisplayNameUpdateSerializer,
     FriendRequestCreateSerializer,
     FriendshipSerializer,
     LoginSerializer,
@@ -132,6 +133,18 @@ class NicknameUpdateAPIView(APIView):
         user = services.update_user_nickname(
             request.user,
             serializer.validated_data['nickname'],
+        )
+        return Response(UserSerializer(user).data)
+
+
+class DisplayNameUpdateAPIView(APIView):
+    def patch(self, request):
+        serializer = DisplayNameUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = services.update_user_display_name(
+            request.user,
+            serializer.validated_data['display_name'].strip(),
         )
         return Response(UserSerializer(user).data)
 

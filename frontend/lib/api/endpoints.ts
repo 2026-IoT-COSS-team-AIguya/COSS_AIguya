@@ -86,6 +86,13 @@ export function updateNickname(nickname: string) {
   return api.patch<User>("/users/me/nickname/", { nickname });
 }
 
+// 한글 표시 이름 설정. 빈 문자열을 보내면 표시 이름을 지웁니다.
+export function updateDisplayName(displayName: string) {
+  return api.patch<User>("/users/me/display-name/", {
+    display_name: displayName,
+  });
+}
+
 export function completeOnboarding() {
   return api.post<User>("/users/me/onboarding-complete/");
 }

@@ -21,6 +21,8 @@ export type UserRole = "SIGN_USER" | "HEARING_USER";
 export type User = {
   id: number;
   nickname: string;
+  // 이모지 아이디와 함께 보여줄 한글 이름(선택). 비워두면 빈 문자열.
+  display_name: string;
   role: UserRole;
   onboarding_completed: boolean;
 };
@@ -28,6 +30,7 @@ export type User = {
 export type ConversationParticipant = {
   id: number;
   nickname: string;
+  display_name: string;
   role: UserRole;
 };
 
@@ -63,6 +66,7 @@ export type Conversation = {
 export type MessageSender = {
   id: number;
   nickname: string;
+  display_name: string;
   role: UserRole;
 };
 
@@ -154,3 +158,12 @@ export const roleLabel: Record<UserRole, string> = {
   SIGN_USER: "농인 (수어 사용자)",
   HEARING_USER: "비장애인 / 직원",
 };
+
+// 이모지 아이디에 한글 이름이 있으면 "🐶🍎⭐ (민지)" 형태로, 없으면 아이디만.
+export function withDisplayName(
+  nickname: string,
+  displayName?: string | null
+): string {
+  const name = displayName?.trim();
+  return name ? `${nickname} (${name})` : nickname;
+}

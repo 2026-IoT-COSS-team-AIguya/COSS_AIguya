@@ -280,12 +280,13 @@ export function FriendsView({
 
         <div className="mt-8 rounded-[24px] bg-sky-50 p-4">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
-            시연 팁
+            내 아이디
           </p>
-          <p className="mt-2 text-xs leading-5 text-sky-700">
-            {currentUser.role === "SIGN_USER"
-              ? "다른 노트북에서 청인 계정으로 로그인해 친구 신청을 보내면, 이 화면에 5초 안에 나타납니다."
-              : "다른 노트북에서 농인 계정으로 로그인해 친구 신청을 보내면, 이 화면에 5초 안에 나타납니다."}
+          <p className="mt-2 text-lg font-black text-slate-900">
+            {currentUser.nickname}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-sky-700">
+            친구가 이 아이디로 나를 찾을 수 있어요. 고른 순서 그대로 알려주세요.
           </p>
         </div>
       </Panel>

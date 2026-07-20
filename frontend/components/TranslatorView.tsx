@@ -205,15 +205,6 @@ export function TranslatorView({
           </div>
         )}
 
-        <div className="mt-5 rounded-[24px] bg-amber-50 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
-            개발 현황
-          </p>
-          <p className="mt-2 text-xs leading-5 text-amber-800">
-            수어 인식 모델(키포인트 기반)은 학습 중이라, 현재 인식 결과는 고정된
-            예시가 순서대로 나옵니다. 업로드 · 상태 전이 · 폴링은 실제로 동작합니다.
-          </p>
-        </div>
       </Panel>
 
       {/* 오른쪽: 청인 — 텍스트를 수어 영상으로 */}
@@ -351,7 +342,7 @@ export function TranslatorView({
                         </p>
                       </div>
                       <p className="truncate text-xs text-slate-400">
-                        {item.sign_video.video_url ?? "영상 연결 전 (AI DB 예정)"}
+                        {item.sign_video.video_url ? "영상 준비됨" : "영상 준비 중"}
                       </p>
                     </div>
                   </div>

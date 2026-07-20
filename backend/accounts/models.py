@@ -48,6 +48,17 @@ class User(AbstractUser):
     )
     onboarding_completed = models.BooleanField(default=False)
 
+    # 아이디는 이모지라 누가 누군지 글로 읽기 어렵습니다. 원하는 사람은 여기에
+    # 한글 이름을 적어두면 채팅에 "🐶🍎⭐ (민지)"처럼 함께 보입니다.
+    # 농인은 가족이 대신 적어줄 수도 있습니다. 선택 항목이라 비워둘 수 있습니다.
+    display_name = models.CharField(
+        '표시 이름',
+        max_length=20,
+        blank=True,
+        default='',
+        help_text='채팅에 이모지 아이디와 함께 표시할 한글 이름(선택).',
+    )
+
     # 시연은 노트북 두 대(농인/청인)로 로그인해서 진행하므로 이메일은 필수가 아닙니다.
     email = models.EmailField(blank=True)
 

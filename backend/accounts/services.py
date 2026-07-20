@@ -22,6 +22,12 @@ def update_user_nickname(user, nickname):
     return user
 
 
+def update_user_display_name(user, display_name):
+    user.display_name = display_name
+    user.save(update_fields=['display_name'])
+    return user
+
+
 def complete_user_onboarding(user):
     user.onboarding_completed = True
     user.save(update_fields=['onboarding_completed'])
@@ -36,7 +42,7 @@ def send_friend_request(user, nickname):
             ErrorCode.VALIDATION_ERROR,
             '입력값을 확인해주세요.',
             status.HTTP_404_NOT_FOUND,
-            fields={'nickname': ['그런 닉네임을 가진 사용자가 없습니다.']},
+            fields={'nickname': ['일치하는 아이디를 찾지 못했어요. 아이디와 순서를 다시 확인해 주세요.']},
         )
 
     if target.id == user.id:
