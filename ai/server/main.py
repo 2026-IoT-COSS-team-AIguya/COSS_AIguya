@@ -94,10 +94,12 @@ def _download_video(url: str) -> Path:
 @app.post("/recognize")
 def recognize(req: RecognizeRequest):
     start = time.time()
+    print(f"[recognize] 요청: translation_id={req.translation_id} capture_id={req.capture_id} video_url={req.video_url}")
 
     try:
         tmp_path = _download_video(req.video_url)
     except Exception as e:
+        print(f"[recognize] 다운로드 실패: {e}")
         return _fail("VIDEO_DOWNLOAD_FAILED", str(e), start)
 
     try:
@@ -107,13 +109,17 @@ def recognize(req: RecognizeRequest):
             # enroll.py로 시연자 등록(ai/models/enrolled_prototypes.npz)이 안 돼있으면
             # 여기로 옴 -- 다만 FileNotFoundError는 다른 원인(예: SSL 인증서 경로
             # 문제)으로도 날 수 있어서, 실제 원인을 그대로 노출해 오해를 줄인다.
+            print(f"[recognize] FileNotFoundError: {e}")
             return _fail("AI_INFERENCE_FAILED", f"파일 없음(시연자 등록 미완료일 수 있음): {e}", start)
         except Exception as e:
+            print(f"[recognize] 추론 중 예외: {e}")
             return _fail("AI_INFERENCE_FAILED", str(e), start)
 
         if not result.get("keywords"):
+            print("[recognize] keywords 비어있음 -> SIGN_NOT_DETECTED")
             return _fail("SIGN_NOT_DETECTED", "영상에서 수어 동작을 찾지 못했습니다.", start)
 
+        print(f"[recognize] 성공: top1={result['keywords'][0]}")
         result["status"] = "COMPLETED"
         result["processing_ms"] = int((time.time() - start) * 1000)
         return result
