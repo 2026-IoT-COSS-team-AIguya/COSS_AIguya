@@ -45,16 +45,35 @@ def handle_capture(arduino, camera, backend):
     config.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     video_path = config.OUTPUT_DIR / f'{capture_id}.mp4'
 
-    # 1) 촬영
-    arduino.send('STATUS:RECORDING')
-    logger.info('촬영 시작 (%s초)', config.RECORD_SECONDS)
+    # 1) 첫 버튼 뒤 자세를 잡을 시간을 주고 촬영을 시작합니다. LED는
+    # STATUS:RECORDING을 받을 때 켜지므로 카메라 시작과 거의 동시에 점등됩니다.
+    logger.info('촬영 준비 (%s초)', config.CAPTURE_START_DELAY_SECONDS)
+    time.sleep(config.CAPTURE_START_DELAY_SECONDS)
 
+    started = False
     try:
-        camera.record(video_path, config.RECORD_SECONDS)
+        camera.start_recording(video_path)
+        started = True
+        arduino.send('STATUS:RECORDING')
+        logger.info(
+            '촬영 시작. 버튼을 다시 누르면 종료합니다. (최대 %s초)',
+            config.MAX_RECORD_SECONDS,
+        )
+
+        deadline = time.monotonic() + config.MAX_RECORD_SECONDS
+        while time.monotonic() < deadline:
+            if arduino.read_line() == 'BUTTON_STOP':
+                logger.info('촬영 종료 버튼 입력')
+                break
+        else:
+            logger.warning('최대 촬영 시간에 도달하여 자동으로 종료합니다.')
     except Exception:
         logger.exception('촬영 실패')
         arduino.send('STATUS:FAIL')
         return
+    finally:
+        if started:
+            camera.stop_recording()
 
     size_kb = video_path.stat().st_size / 1024
     logger.info('촬영 완료: %s (%.0f KB)', video_path.name, size_kb)

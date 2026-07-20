@@ -4,6 +4,8 @@ from rest_framework import status
 
 from project import gemini
 from project.errors import ApiError, ErrorCode
+from sign_videos import ai_client
+from sign_videos.models import SignVideo
 from sign_videos.selectors import find_sign_videos_by_keywords, get_sign_video_keywords
 
 # 수어로 보여줄 수 있는 단어는 사전에 있는 것뿐이라, LLM에게 문장은 자유롭게
@@ -44,7 +46,7 @@ def validate_sign_video_keywords(keywords):
     return found
 
 
-def build_sign_video_sequence(keywords):
+def _build_local_sign_video_sequence(keywords):
     """명세 7.2: 백엔드는 요청받은 키워드 순서를 유지해야 합니다.
 
     DB 조회 결과는 순서를 보장하지 않으므로, 요청 리스트를 기준으로 다시 세웁니다.
@@ -55,6 +57,85 @@ def build_sign_video_sequence(keywords):
         {'position': index + 1, 'sign_video': found[keyword]}
         for index, keyword in enumerate(keywords)
     ]
+
+
+def _sync_remote_sequence(items):
+    """AI 영상 URL을 기존 SignVideo 형식으로 동기화합니다.
+
+    대화 메시지는 SignVideo FK를 저장하므로 원격 응답을 그대로 반환하는 대신
+    로컬 row에 URL을 반영합니다. 이 덕분에 번역기와 채팅이 같은 재생 구조를 씁니다.
+    """
+    sequence = []
+
+    for index, item in enumerate(items, start=1):
+        keyword = item['keyword']
+        video, created = SignVideo.objects.get_or_create(
+            keyword=keyword,
+            defaults={
+                'title': item.get('title') or keyword,
+                'emoji': item.get('emoji') or '🖐️',
+                'external_url': item.get('video_url') or '',
+            },
+        )
+
+        update_fields = []
+        video_url = item.get('video_url') or ''
+        if video_url and video.external_url != video_url:
+            video.external_url = video_url
+            update_fields.append('external_url')
+
+        # 기존 시연 데이터의 이모지/표시명은 보존하고, AI가 명시적으로 준 값만 반영합니다.
+        if item.get('title') and video.title != item['title']:
+            video.title = item['title']
+            update_fields.append('title')
+        if item.get('emoji') and video.emoji != item['emoji']:
+            video.emoji = item['emoji']
+            update_fields.append('emoji')
+        if not video.is_active:
+            video.is_active = True
+            update_fields.append('is_active')
+
+        if not created and update_fields:
+            video.save(update_fields=update_fields)
+
+        sequence.append(
+            {
+                'position': item.get('position') or index,
+                'sign_video': video,
+            }
+        )
+
+    sequence.sort(key=lambda item: item['position'])
+    return sequence
+
+
+def build_sign_video_sequence(keywords):
+    """키워드 순서대로 수어 영상을 만듭니다.
+
+    AI 영상 서버가 설정되면 원격 영상 사전을 사용하고, 설정되지 않은 개발
+    환경에서는 기존 로컬 DB 방식으로 동작합니다.
+    """
+    if not ai_client.is_enabled():
+        return _build_local_sign_video_sequence(keywords)
+
+    result = ai_client.fetch_sequence(keywords)
+    returned = {item['keyword'] for item in result['items']}
+    missing = list(result['missing_keywords'])
+    missing.extend(
+        keyword
+        for keyword in keywords
+        if keyword not in returned and keyword not in missing
+    )
+
+    if missing:
+        raise ApiError(
+            ErrorCode.SIGN_VIDEO_NOT_FOUND,
+            '수어 영상이 없는 키워드가 있습니다.',
+            status.HTTP_404_NOT_FOUND,
+            fields={'keywords': missing},
+        )
+
+    return _sync_remote_sequence(result['items'])
 
 
 def extract_keywords_from_sentence(sentence):
@@ -104,14 +185,24 @@ def build_sign_video_sequence_from_sentence(sentence):
 
     ai/pipeline/recognize.py 의 sign_sequence_from_sentence 와 같은 역할입니다.
     """
+    if ai_client.is_enabled():
+        result = ai_client.fetch_sequence_from_sentence(sentence)
+        sequence = _sync_remote_sequence(result['items'])
+        return {
+            'keywords': [item['sign_video'].keyword for item in sequence],
+            'sequence': sequence,
+            'missing_keywords': result['missing_keywords'],
+        }
+
     keywords = extract_keywords_from_sentence(sentence)
 
     if not keywords:
         # 27장: 인식 실패와 서버 장애는 다릅니다. 문장은 멀쩡히 분석됐는데
         # 사전에 겹치는 단어가 없는 것뿐이라, 장애가 아니라 빈 결과입니다.
-        return {'keywords': [], 'sequence': []}
+        return {'keywords': [], 'sequence': [], 'missing_keywords': []}
 
     return {
         'keywords': keywords,
-        'sequence': build_sign_video_sequence(keywords),
+        'sequence': _build_local_sign_video_sequence(keywords),
+        'missing_keywords': [],
     }

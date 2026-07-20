@@ -1,21 +1,9 @@
 import { ApiError } from "@/lib/api/errors";
 import type { ApiErrorBody } from "@/lib/types";
 
-// Django 프-백 주소. 목 백엔드는 제거했으므로 이 값이 반드시 있어야 합니다.
-//
-// 예전에는 값이 없으면 같은 오리진의 목 백엔드(app/api/v1)로 조용히 넘어갔는데,
-// 그게 오히려 위험했습니다 — 목업에는 대화 4개와 옛 계정이 박혀 있어서, 설정을
-// 빠뜨린 걸 모른 채 "왜 안 지운 대화가 보이지?"로 헤매게 됩니다.
-// .env.local은 커밋되지 않으므로 새 환경(팀원 · Vercel)에서 특히 잘 빠집니다.
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-if (!BASE_URL) {
-  throw new Error(
-    'NEXT_PUBLIC_API_BASE_URL이 설정되지 않았습니다. ' +
-      'frontend/.env.local 에 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1 을 넣고 ' +
-      'dev 서버를 다시 시작하세요. (이 값은 서버 시작 시 한 번만 읽힙니다.)'
-  );
-}
+// 브라우저는 항상 현재 프론트와 같은 출처로 요청합니다. next.config.ts의 rewrite가
+// Django로 전달하므로 다른 노트북도 3000번 포트 하나만 접근하면 됩니다.
+const BASE_URL = "/api/v1";
 
 // 명세 10장: Access Token은 프론트 메모리에 저장합니다.
 // (localStorage에 두지 않는 것이 합의된 내용이라 모듈 스코프 변수로 보관합니다.)

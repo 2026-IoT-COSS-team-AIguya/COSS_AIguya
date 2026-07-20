@@ -30,29 +30,32 @@ class PiCamera:
 
         self._encoder_cls = H264Encoder
         self._camera = Picamera2()
+        self._recording = False
+        self._output = None
 
         config = self._camera.create_video_configuration(
             main={'size': (width, height)}
         )
         self._camera.configure(config)
 
-    def record(self, output_path, seconds):
+    def start_recording(self, output_path):
         # 명세 7.1이 video/mp4를 받으므로 FfmpegOutput으로 바로 mp4를 만듭니다.
         # (H264 raw로 저장하면 컨테이너가 없어 업로드가 415로 거절됩니다.)
         from picamera2.outputs import FfmpegOutput
 
-        output = FfmpegOutput(str(output_path))
+        self._output = FfmpegOutput(str(output_path))
+        self._camera.start_recording(self._encoder_cls(), self._output)
+        self._recording = True
 
-        self._camera.start_recording(self._encoder_cls(), output)
-        try:
-            time.sleep(seconds)
-        finally:
+    def stop_recording(self):
+        if self._recording:
             self._camera.stop_recording()
-
-        return output_path
+            self._recording = False
+            self._output = None
 
     def close(self):
         try:
+            self.stop_recording()
             self._camera.close()
         except Exception:
             logger.warning('카메라를 닫는 중 오류', exc_info=True)
@@ -63,18 +66,22 @@ class FakeCamera:
 
     def __init__(self, sample_path):
         self._sample = Path(sample_path)
+        self._output_path = None
 
         if not self._sample.exists():
             raise FileNotFoundError(f'샘플 영상이 없습니다: {self._sample}')
 
-    def record(self, output_path, seconds):
-        logger.info('[가짜 카메라] %s초 촬영하는 척', seconds)
-        time.sleep(min(seconds, 1))  # 시연 흐름만 흉내내고 오래 기다리진 않습니다.
-        shutil.copy(self._sample, output_path)
-        return output_path
+    def start_recording(self, output_path):
+        logger.info('[가짜 카메라] 촬영 시작')
+        self._output_path = Path(output_path)
+
+    def stop_recording(self):
+        if self._output_path is not None:
+            shutil.copy(self._sample, self._output_path)
+            self._output_path = None
 
     def close(self):
-        pass
+        self.stop_recording()
 
 
 # ============================================================================
@@ -89,7 +96,7 @@ class ArduinoSerial:
         import serial
 
         # 아두이노는 시리얼이 열리면 리셋됩니다. 부팅을 기다려야 첫 줄을 놓치지 않습니다.
-        self._serial = serial.Serial(port, baud, timeout=1)
+        self._serial = serial.Serial(port, baud, timeout=0.1)
         time.sleep(2)
         self._serial.reset_input_buffer()
 
@@ -116,17 +123,24 @@ class ArduinoSerial:
 class FakeArduino:
     """아두이노가 없을 때. Enter를 치면 버튼을 누른 것으로 칩니다."""
 
+    def __init__(self):
+        self._recording = False
+
     def read_line(self):
         try:
-            input('\n[가짜 아두이노] Enter = 버튼 누름 (Ctrl+C 종료) ')
+            action = '촬영 종료' if self._recording else '촬영 시작'
+            input(f'\n[가짜 아두이노] Enter = {action} 버튼 (Ctrl+C 종료) ')
         except EOFError:
             time.sleep(1)
             return ''
 
-        return 'BUTTON'
+        self._recording = not self._recording
+        return 'BUTTON_STOP' if not self._recording else 'BUTTON'
 
     def send(self, command):
         print(f'[가짜 아두이노] <- {command}')
+        if command in ('STATUS:DONE', 'STATUS:FAIL'):
+            self._recording = False
 
     def close(self):
         pass
