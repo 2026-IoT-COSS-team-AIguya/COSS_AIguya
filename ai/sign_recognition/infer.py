@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from keypoints import extract_keypoints_from_video, normalize_sequence, trim_to_motion
+from keypoints import extract_keypoints_from_video, normalize_sequence, segment_words, trim_to_motion
 from dataset import augment
 from model import SignEncoder
 
@@ -66,12 +66,63 @@ def predict(video_path: str, top_k: int = 3) -> list[tuple[str, float]]:
     return [(str(_proto_words[i]), float(probs[i])) for i in order]
 
 
+def _predict_segment(kp_segment: np.ndarray) -> tuple[str, float]:
+    seq = augment(kp_segment, train=False)
+    with torch.no_grad():
+        x = torch.from_numpy(seq).unsqueeze(0).to(DEVICE)
+        emb = _model(x).cpu().numpy()[0]
+    sims = _proto_embeddings @ emb
+    temperature = 0.1
+    logits = sims / temperature
+    probs = np.exp(logits - logits.max())
+    probs = probs / probs.sum()
+    best = int(np.argmax(probs))
+    return str(_proto_words[best]), float(probs[best])
+
+
+def predict_sequence(video_path: str) -> list[tuple[str, float]]:
+    """한 영상 안에 여러 단어가 순서대로 사인된 경우, 움직임이 멈추는
+    지점(단어 사이 pause)마다 나눠서 단어별로 하나씩 예측한다.
+
+    predict()는 "영상 전체 = 단어 하나"라는 가정으로 top-k 후보를 주는
+    반면, 이 함수는 영상 하나에 여러 단어가 연달아 들어있는 실제 라즈베리
+    파이 촬영(버튼 한 번 = 여러 단어 연속)을 위한 것. 반환값은 영상에 나온
+    순서대로 (단어, 확신도) 리스트 -- 단어 개수가 세그먼트 개수만큼 나온다.
+    """
+    _load()
+
+    kp = extract_keypoints_from_video(video_path)
+    kp = normalize_sequence(kp)
+    kp = trim_to_motion(kp)
+
+    MIN_SEGMENT_CONF = 0.6  # 단어 경계에서 동작이 섞여 애매하게 나오는 조각 필터링용
+
+    segments = segment_words(kp)
+    raw_results = []
+    for start, end in segments:
+        word, conf = _predict_segment(kp[start:end])
+        if conf < MIN_SEGMENT_CONF:
+            continue  # 실제 단어 사이 전환 구간이 섞여 들어온 노이즈일 가능성이 큼
+        raw_results.append((word, conf))
+
+    # 한 단어 동작 안에서도 준비/스트로크 사이에 미세하게 멈칫하는 순간이
+    # 있어서, segment_words가 같은 단어를 여러 조각으로 쪼갤 때가 있다.
+    # 연속으로 같은 단어가 나오면 하나로 합친다(신뢰도는 더 높은 쪽 사용).
+    results: list[tuple[str, float]] = []
+    for word, conf in raw_results:
+        if results and results[-1][0] == word:
+            results[-1] = (word, max(results[-1][1], conf))
+        else:
+            results.append((word, conf))
+    return results
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("사용법: python infer.py <영상경로.mp4>")
         raise SystemExit(1)
 
-    results = predict(sys.argv[1])
-    print("\nAI 인식 결과")
+    results = predict_sequence(sys.argv[1])
+    print("\nAI 인식 결과 (순서대로)")
     for i, (word, conf) in enumerate(results, 1):
         print(f"{i}. {word} {conf:.0%}")

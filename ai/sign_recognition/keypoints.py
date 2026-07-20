@@ -118,6 +118,70 @@ def trim_to_motion(seq: np.ndarray, pad: int = 5, motion_frac: float = 0.05) -> 
     return seq[start:end]
 
 
+def segment_words(
+    seq: np.ndarray,
+    motion_frac: float = 0.05,
+    min_gap_frames: int = 8,
+    min_segment_frames: int = 8,
+    pad: int = 4,
+) -> list[tuple[int, int]]:
+    """한 영상 안에 여러 단어가 연속으로 수어된 경우, 손 움직임이 멈추는
+    지점(단어 사이 pause)을 기준으로 나눠서 단어별 구간 리스트를 반환한다.
+
+    라즈베리파이는 버튼 한 번으로 여러 단어를 이어서 촬영하는 방식이라(예:
+    "화장실" 사인하고 잠깐 멈췄다가 "어디" 사인), trim_to_motion()처럼 전체를
+    한 덩어리로 보고 리샘플하면 여러 단어가 뭉개져서 어느 프로토타입과도 안
+    맞는다. 대신 여기서는 움직임이 min_gap_frames 이상 끊기는 지점마다 새
+    단어로 분리한다.
+
+    반환: [(start, end), ...] 프레임 인덱스 구간 리스트(시간 순). 분리에
+    실패하면(움직임이 하나로만 이어짐) 구간 1개짜리 리스트를 반환한다.
+    """
+    n = seq.shape[0]
+    if n < min_segment_frames:
+        return [(0, n)]
+
+    hands = seq.reshape(n, -1, 3)[:, N_POSE:].reshape(n, -1)
+    velocity = np.linalg.norm(np.diff(hands, axis=0), axis=1)
+    if velocity.max() < 1e-6:
+        return [(0, n)]
+
+    threshold = velocity.max() * motion_frac
+    is_moving = velocity > threshold  # length n-1, is_moving[i] = frame i->i+1
+
+    # 움직이는 프레임들을 이어붙이되, min_gap_frames보다 짧은 정지 구간은
+    # "동작 사이 자연스러운 순간 멈춤"으로 보고 무시(같은 단어로 합침).
+    segments = []
+    i = 0
+    while i < len(is_moving):
+        if not is_moving[i]:
+            i += 1
+            continue
+        start = i
+        j = i
+        while j < len(is_moving):
+            if is_moving[j]:
+                j += 1
+                continue
+            # 정지 시작 -> 얼마나 오래 정지하는지 확인
+            gap_start = j
+            while j < len(is_moving) and not is_moving[j]:
+                j += 1
+            if j - gap_start >= min_gap_frames:
+                break  # 진짜 단어 경계
+            # 짧은 정지는 무시하고 계속 같은 세그먼트로
+        end = gap_start if j - gap_start >= min_gap_frames or j == len(is_moving) else j
+        end = min(n, end + 1 + pad)
+        seg_start = max(0, start - pad)
+        if end - seg_start >= min_segment_frames:
+            segments.append((seg_start, end))
+        i = j
+
+    if not segments:
+        return [(0, n)]
+    return segments
+
+
 def normalize_sequence(seq: np.ndarray) -> np.ndarray:
     """어깨 중심을 원점으로, 어깨너비로 스케일 정규화 -> 사람의 위치/체격 차이를 지운다.
     pose landmark 11 = 왼쪽 어깨, 12 = 오른쪽 어깨 (MediaPipe pose 인덱스 기준).
