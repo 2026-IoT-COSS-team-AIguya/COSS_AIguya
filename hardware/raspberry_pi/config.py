@@ -20,6 +20,13 @@ def _int(name, default):
         return default
 
 
+def _float(name, default):
+    try:
+        return float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
 # --- 백엔드 (프-백) ---
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api/v1')
 
@@ -49,7 +56,12 @@ SERIAL_BAUD = _int('SERIAL_BAUD', 115200)
 
 # --- 촬영 ---
 # 명세 7.1: 권장 최대 길이 30초. 시연에서는 짧게 갑니다.
-RECORD_SECONDS = _int('RECORD_SECONDS', 5)
+# 첫 버튼을 누른 뒤 자세를 잡을 시간입니다.
+CAPTURE_START_DELAY_SECONDS = _float('CAPTURE_START_DELAY_SECONDS', 1.0)
+
+# 촬영은 두 번째 버튼을 누르면 끝납니다. 버튼/시리얼 장애로 무한 촬영되는 것을
+# 막기 위한 안전 상한만 유지합니다.
+MAX_RECORD_SECONDS = _int('MAX_RECORD_SECONDS', 30)
 VIDEO_WIDTH = _int('VIDEO_WIDTH', 1280)
 VIDEO_HEIGHT = _int('VIDEO_HEIGHT', 720)
 
