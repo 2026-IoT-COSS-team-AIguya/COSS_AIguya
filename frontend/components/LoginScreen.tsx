@@ -190,7 +190,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: User) => void }) {
                   {(
                     [
                       ["SIGN_USER", "🤟", "농인", "이모지 아이디"],
-                      ["HEARING_USER", "⌨️", "비장애인", "글자 아이디"],
+                      ["HEARING_USER", "⌨️", "비장애인", "글자 비밀번호"],
                     ] as const
                   ).map(([value, emoji, title, hint]) => (
                     <button
@@ -269,7 +269,7 @@ export function LoginScreen({ onLogin }: { onLogin: (user: User) => void }) {
                 <div>
                   <label className="block">
                     <span className="mb-2 block text-sm font-bold text-slate-700">
-                      비밀번호
+                      {mode === "signup" ? "글자 비밀번호" : "비밀번호"}
                     </span>
                     <input
                       type="password"

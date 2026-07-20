@@ -251,7 +251,7 @@ export default function Page() {
           <header className="relative flex h-20 shrink-0 items-center justify-between overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_10%_0%,rgba(56,189,248,0.22),transparent_28%),linear-gradient(90deg,#071430_0%,#0A2252_55%,#0C2E70_100%)] px-6 text-white">
             <div className="relative z-10">
               <h2 className="text-2xl font-black tracking-tight">
-                {activeMenu === "chat" && "💬 폴라로이드 채팅"}
+                {activeMenu === "chat" && "💬 채팅"}
                 {activeMenu === "friends" && "👥 친구"}
                 {activeMenu === "translator" && "🔄 번역기 모드"}
                 {activeMenu === "settings" && "⚙️ 설정"}

@@ -66,6 +66,18 @@ export function ChatView({
       .join(", ");
   };
 
+  // 아이콘도 상대 기준입니다 — 상대가 농인이면 🤟, 청인이면 ⌨️. 저장된
+  // conversation.icon은 만든 사람 역할로 고정돼 있어 쓰지 않습니다.
+  const conversationIcon = (conversation: Conversation) => {
+    const others = conversation.participants.filter(
+      (participant) => participant.id !== currentUser.id
+    );
+    if (others.length === 1) {
+      return others[0].role === "SIGN_USER" ? "🤟" : "⌨️";
+    }
+    return conversation.icon;
+  };
+
   const { messages, loading, appendLocal } = useMessagePolling(
     selectedId,
     onAuthExpired
@@ -199,7 +211,7 @@ export function ChatView({
             >
               <div className="flex items-start gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#22C1FF_0%,#1D4ED8_100%)] text-2xl shadow-[0_14px_30px_rgba(29,78,216,0.24)] transition-transform duration-300 group-hover:scale-105">
-                  {conversation.icon}
+                  {conversationIcon(conversation)}
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -221,7 +233,9 @@ export function ChatView({
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white/90 px-6 py-4 backdrop-blur">
           <div>
             <h3 className="flex items-center gap-2 text-xl font-black text-slate-900">
-              <span className="text-2xl">{selected?.icon ?? "💬"}</span>
+              <span className="text-2xl">
+                {selected ? conversationIcon(selected) : "💬"}
+              </span>
               {selected ? conversationName(selected) : "대화를 선택하세요"}
             </h3>
             <p className="mt-1 text-xs font-medium text-slate-400">

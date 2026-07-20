@@ -106,7 +106,7 @@ export function Avatar({ label, mine = false }: { label: string; mine?: boolean 
   return (
     <div
       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black text-white ${
-        mine ? "bg-sky-500" : "bg-[linear-gradient(180deg,#0F172A_0%,#1D4ED8_100%)]"
+        mine ? "bg-sky-500" : "bg-[linear-gradient(180deg,#22C1FF_0%,#1D4ED8_100%)]"
       }`}
     >
       {firstGrapheme(label)}

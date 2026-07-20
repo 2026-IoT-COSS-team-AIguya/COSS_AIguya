@@ -18,7 +18,7 @@ import {
   sendFriendRequest,
 } from "@/lib/api/endpoints";
 import { toUserMessage } from "@/lib/api/errors";
-import { roleLabel } from "@/lib/types";
+import { roleLabel, withDisplayName } from "@/lib/types";
 import type { User } from "@/lib/types";
 
 export function FriendsView({
@@ -157,7 +157,10 @@ export function FriendsView({
                     <Avatar label={request.requester.nickname} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-base font-black text-slate-900">
-                        {request.requester.nickname}
+                        {withDisplayName(
+                          request.requester.nickname,
+                          request.requester.display_name
+                        )}
                       </p>
                       <p className="truncate text-xs font-semibold text-slate-500">
                         {roleLabel[request.requester.role]}
@@ -205,7 +208,10 @@ export function FriendsView({
                 >
                   <Avatar label={request.addressee.nickname} />
                   <p className="min-w-0 flex-1 truncate text-sm font-bold text-slate-700">
-                    {request.addressee.nickname}
+                    {withDisplayName(
+                      request.addressee.nickname,
+                      request.addressee.display_name
+                    )}
                   </p>
                   <span className="shrink-0 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
                     수락 대기 중
@@ -261,7 +267,7 @@ export function FriendsView({
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-base font-black text-slate-900">
-                  {friend.nickname}
+                  {withDisplayName(friend.nickname, friend.display_name)}
                 </p>
                 <p className="truncate text-xs font-semibold text-slate-400">
                   {roleLabel[friend.role]}
