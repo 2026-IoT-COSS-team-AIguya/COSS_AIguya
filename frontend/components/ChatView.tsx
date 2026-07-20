@@ -49,6 +49,23 @@ export function ChatView({
   const isSignUser = currentUser.role === "SIGN_USER";
   const selected = conversations.find((item) => item.id === selectedId) ?? null;
 
+  // 1:1 대화의 표시 이름은 "상대"입니다. 백엔드가 저장한 title은 늘 농인 쪽을
+  // 가리켜서, 농인 본인이 보면 자기 이름이 떠버립니다. 그래서 보는 사람 기준으로
+  // 상대 참가자 이름을 씁니다 (상대가 없으면 저장된 title로 폴백).
+  const conversationName = (conversation: Conversation) => {
+    const others = conversation.participants.filter(
+      (participant) => participant.id !== currentUser.id
+    );
+    if (others.length === 0) {
+      return conversation.title;
+    }
+    return others
+      .map((participant) =>
+        withDisplayName(participant.nickname, participant.display_name)
+      )
+      .join(", ");
+  };
+
   const { messages, loading, appendLocal } = useMessagePolling(
     selectedId,
     onAuthExpired
@@ -187,20 +204,8 @@ export function ChatView({
 
                 <div className="min-w-0 flex-1">
                   <h4 className="truncate text-base font-black text-slate-900">
-                    {conversation.title}
+                    {conversationName(conversation)}
                   </h4>
-
-                  <p className="mt-0.5 truncate text-xs font-bold text-slate-500">
-                    {conversation.participants
-                      .filter((participant) => participant.id !== currentUser.id)
-                      .map((participant) =>
-                        withDisplayName(
-                          participant.nickname,
-                          participant.display_name
-                        )
-                      )
-                      .join(", ")}
-                  </p>
 
                   <p className="mt-1 truncate text-xs font-medium text-slate-400">
                     {conversation.last_message_preview ?? "아직 대화가 없어요"}
@@ -217,7 +222,7 @@ export function ChatView({
           <div>
             <h3 className="flex items-center gap-2 text-xl font-black text-slate-900">
               <span className="text-2xl">{selected?.icon ?? "💬"}</span>
-              {selected?.title ?? "대화를 선택하세요"}
+              {selected ? conversationName(selected) : "대화를 선택하세요"}
             </h3>
             <p className="mt-1 text-xs font-medium text-slate-400">
               {selected?.category ?? "—"}
