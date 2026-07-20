@@ -5,6 +5,15 @@ import json
 import os
 import time
 
+# conda 환경의 SSL_CERT_FILE이 존재하지 않는 경로를 가리키면(예: 이 환경에서
+# envs/coss/ssl/cacert.pem이 없는 경우) genai.Client() 생성 시
+# ssl.create_default_context()가 FileNotFoundError를 던진다. certifi가 제공하는
+# 정상 인증서로 대체해서 이 문제를 우회한다.
+if not os.path.exists(os.environ.get("SSL_CERT_FILE", "")):
+    import certifi
+
+    os.environ["SSL_CERT_FILE"] = certifi.where()
+
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types

@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from keypoints import extract_keypoints_from_video, normalize_sequence
+from keypoints import extract_keypoints_from_video, normalize_sequence, trim_to_motion
 from dataset import augment
 from model import SignEncoder
 
@@ -48,6 +48,7 @@ def predict(video_path: str, top_k: int = 3) -> list[tuple[str, float]]:
 
     kp = extract_keypoints_from_video(video_path)
     kp = normalize_sequence(kp)
+    kp = trim_to_motion(kp)  # 실촬영본의 대기시간(정지 구간)이 리샘플을 희석시키는 것 방지
     kp = augment(kp, train=False)
 
     with torch.no_grad():
