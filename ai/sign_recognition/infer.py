@@ -57,7 +57,7 @@ def _predict_segment(kp_segment: np.ndarray) -> tuple[str, float]:
 
 
 def _predict_sliding(
-    kp: np.ndarray, window: int = 55, stride: int = 12, min_conf: float = 0.55, min_run: int = 2
+    kp: np.ndarray, window: int = 55, stride: int = 12, min_conf: float = 0.5, min_run: int = 2
 ) -> list[tuple[str, float]]:
     """정지 구간이 없어서(자연스럽게 이어지는 수어) pause 기반 분리가 안 될 때
     쓰는 백업 방식. 멈춤을 찾는 대신 일정 길이(window)만큼 겹쳐가며(stride)
