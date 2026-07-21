@@ -92,6 +92,32 @@ def extract_keypoints_from_video(video_path: str, max_frames: int | None = None)
     return np.stack(frames, axis=0)
 
 
+def trim_to_motion(seq: np.ndarray, pad: int = 5, motion_frac: float = 0.05) -> np.ndarray:
+    """손 움직임이 없는 앞/뒤 대기 구간을 잘라내고 실제 동작 구간만 남긴다.
+
+    라즈베리파이 실촬영본은 촬영 시작~수어 시작 사이 대기 시간이 길어서(예:
+    8초짜리 영상 중 앞 5초가 완전히 정지 상태), FIXED_LEN=64로 균등
+    리샘플하면 실제 수어 동작이 극히 일부 프레임에만 눌려 담겨 인식률이
+    크게 떨어진다. 학습 데이터는 이미 트리밍돼 있어서 이 함수를 거쳐도
+    거의 그대로 남는다(무해).
+    """
+    if seq.shape[0] < 20:
+        return seq
+    hands = seq.reshape(seq.shape[0], -1, 3)[:, N_POSE:].reshape(seq.shape[0], -1)
+    velocity = np.linalg.norm(np.diff(hands, axis=0), axis=1)
+    if velocity.max() < 1e-6:
+        return seq
+    threshold = velocity.max() * motion_frac
+    motion_idx = np.where(velocity > threshold)[0]
+    if len(motion_idx) == 0:
+        return seq
+    start = max(0, int(motion_idx[0]) - pad)
+    end = min(seq.shape[0], int(motion_idx[-1]) + pad + 2)
+    if end - start < 10:
+        return seq
+    return seq[start:end]
+
+
 def normalize_sequence(seq: np.ndarray) -> np.ndarray:
     """어깨 중심을 원점으로, 어깨너비로 스케일 정규화 -> 사람의 위치/체격 차이를 지운다.
     pose landmark 11 = 왼쪽 어깨, 12 = 오른쪽 어깨 (MediaPipe pose 인덱스 기준).

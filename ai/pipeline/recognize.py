@@ -34,20 +34,33 @@ MODEL_VERSION = "keypoint-sign-encoder-v1"
 
 
 def predict_sign_from_video(video_path: str, top_k: int = 3, n_sentences: int = 3) -> dict:
-    """영상 하나 -> 인식 키워드 + 문장 후보 (수어사용자 -> 일반인 방향).
+    """영상 하나(버튼 한 번으로 여러 단어를 연속 촬영) -> 순서대로 인식된
+    키워드들 + 문장 후보 (수어사용자 -> 일반인 방향).
 
-    주의: infer.predict()는 ai/models/enrolled_prototypes.npz(enroll.py로 생성)가
+    영상 안에서 손 움직임이 멈추는 지점(단어 사이 pause)마다 나눠서 단어별로
+    하나씩 예측한다(infer.predict_sequence) -- top_k는 더 이상 "후보 개수"가
+    아니라 감지된 단어 수가 곧 키워드 개수가 된다(인수인계 문서 11.6/16.2
+    예시: "화장실"+"어디"처럼 서로 다른 단어 여러 개가 keywords에 담김).
+
+    주의: infer 모듈은 ai/models/enrolled_prototypes.npz(enroll.py로 생성)가
     있어야 동작한다. 아직 시연자 등록 전이면 여기서 FileNotFoundError가 난다.
     """
     t0 = time.time()
 
     import infer
 
-    top_words = infer.predict(video_path, top_k=top_k)  # [(word, confidence), ...]
+    top_words = infer.predict_sequence(video_path)  # [(word, confidence), ...] 시간 순
 
-    import generate_sentence
+    # 문장 생성(LLM)은 키워드 인식과 별개 단계다 -- LLM 호출이 실패해도(쿼터
+    # 초과, 네트워크 문제, SSL 등) 이미 성공한 키워드 인식 결과까지 버리지
+    # 않고, 문장 후보만 빈 채로 돌려준다.
+    try:
+        import generate_sentence
 
-    sentences = generate_sentence.generate_sentence_candidates([list(top_words)], n=n_sentences)
+        sentences = generate_sentence.generate_sentence_candidates([list(top_words)], n=n_sentences)
+    except Exception as e:
+        print(f"[recognize] 문장 생성 실패(키워드는 정상 반환): {e}")
+        sentences = []
 
     processing_ms = int((time.time() - t0) * 1000)
 

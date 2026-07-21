@@ -164,9 +164,11 @@ def _create_content_instance(container, payload):
         return None
 
     # con에는 JSON 문자열을 넣습니다. Mobius가 파싱해서 객체로 돌려줍니다.
+    # indent=2로 들여쓰기해서 플랫폼 포털에서 con 값을 볼 때 가독성을 높입니다
+    # (메타데이터가 작아서 16KB 컨테이너 제한에는 여유가 있습니다).
     body = {
         'm2m:cin': {
-            'con': json.dumps(payload, ensure_ascii=False),
+            'con': json.dumps(payload, ensure_ascii=False, indent=2),
             'lbl': [LABEL],
         }
     }

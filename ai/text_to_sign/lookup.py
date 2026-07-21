@@ -20,12 +20,23 @@ RECORDED_DIR = DATA_DIR / "recorded"
 SIGN_WORDS_DIR = DATA_DIR / "sign_words"
 REFERENCE_CLIPS_DIR = DATA_DIR / "reference_clips"
 
+# reference_clips는 AIHub 문장영상에서 잘라낸 거라 화질/구도가 원래 안 좋을
+# 수 있다. 팀원이 유튜브 등에서 정확한 수어를 직접 참고해서 recorded를 더
+# 낫게 다시 찍은 단어는 여기 추가하면 recorded를 우선 사용한다.
+PREFER_RECORDED = {"돈"}
+
 
 def find_clip(word: str) -> Path | None:
     """word에 해당하는 영상 파일 하나를 찾아 반환. 없으면 None."""
     front = SIGN_WORDS_DIR / word / f"{word}_F.mp4"
     if front.exists():
         return front
+
+    recorded_dir = RECORDED_DIR / word
+    if word in PREFER_RECORDED and recorded_dir.exists():
+        recorded = sorted(recorded_dir.glob("*.mp4"))
+        if recorded:
+            return recorded[0]
 
     ref_dir = REFERENCE_CLIPS_DIR / word
     if ref_dir.exists():
@@ -34,7 +45,6 @@ def find_clip(word: str) -> Path | None:
             return ref[0]
 
     # AIHub(전문 수어사)에 아예 없는 단어일 때만 팀원 촬영본을 최후의 수단으로 사용.
-    recorded_dir = RECORDED_DIR / word
     if recorded_dir.exists():
         recorded = sorted(recorded_dir.glob("*.mp4"))
         if recorded:

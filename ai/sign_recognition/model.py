@@ -9,7 +9,6 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import VideoMAEModel
 
 from keypoints import FEATURE_DIM  # 225
 
@@ -116,50 +115,3 @@ def supervised_contrastive_loss(
     if loss.numel() == 0:
         return torch.tensor(0.0, device=device, requires_grad=True)
     return loss.mean()
-
-
-class VideoMAEEncoder(nn.Module):
-    """Kinetics-400으로 사전학습된 VideoMAE(8600만 파라미터)를 백본으로 쓰는 인코더.
-
-    [B, 16, 3, 224, 224] 영상 프레임 텐서 -> [B, embed_dim] L2-정규화 임베딩.
-
-    데이터가 84개뿐이라 backbone을 통째로 파인튜닝하면 바로 망가진다. 그래서
-    - 트랜스포머 12개 층 중 마지막 n_unfrozen개만 학습(unfreeze)하고
-    - 나머지는 얼려서(freeze) 사전학습 지식을 그대로 보존한다.
-    """
-
-    def __init__(self, embed_dim: int = 128, n_unfrozen: int = 2, dropout: float = 0.3):
-        super().__init__()
-        self.backbone = VideoMAEModel.from_pretrained("MCG-NJU/videomae-base")
-        hidden = self.backbone.config.hidden_size  # 768
-
-        for p in self.backbone.parameters():
-            p.requires_grad = False
-        n_layers = len(self.backbone.encoder.layer)
-        for layer in self.backbone.encoder.layer[n_layers - n_unfrozen :]:
-            for p in layer.parameters():
-                p.requires_grad = True
-
-        # 시퀀스 길이가 1568토큰이라 어텐션 행렬(batch x heads x 1568 x 1568)이
-        # 역전파용으로 저장되면 배치 84 기준 8GB VRAM을 훌쩍 넘긴다. gradient
-        # checkpointing으로 순전파 결과를 저장하지 않고 역전파 때 다시 계산해서
-        # 메모리 대신 연산량을 쓰도록 바꾼다.
-        self.backbone.gradient_checkpointing_enable()
-
-        self.head = nn.Sequential(
-            nn.Dropout(dropout),
-            nn.Linear(hidden, hidden // 2),
-            nn.ReLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Linear(hidden // 2, embed_dim),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: [B, 16, 3, 224, 224]
-        out = self.backbone(x).last_hidden_state  # [B, num_patches, hidden]
-        pooled = out.mean(dim=1)  # 패치 전체 평균 풀링
-        emb = self.head(pooled)
-        return F.normalize(emb, dim=-1)
-
-    def trainable_parameters(self):
-        return [p for p in self.parameters() if p.requires_grad]
