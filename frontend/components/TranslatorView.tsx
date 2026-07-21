@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { CaptureButton } from "@/components/CaptureButton";
+import type { SequenceRequest } from "@/components/SequenceModal";
 import { ActionButton, KeywordTag, Panel } from "@/components/ui";
 import { useLatestTranslation } from "@/hooks/useLatestTranslation";
 import { sentenceToSignSequence } from "@/lib/api/endpoints";
@@ -24,11 +25,7 @@ export function TranslatorView({
   currentUser: User;
   quickKeywords: QuickKeyword[];
   lookup: (keyword: string) => SignVideo;
-  onOpenSequence: (
-    title: string,
-    sequence: SignVideoSequenceItem[],
-    description?: string
-  ) => void;
+  onOpenSequence: (request: SequenceRequest) => void;
 }) {
   const isSignUser = currentUser.role === "SIGN_USER";
 
@@ -39,6 +36,9 @@ export function TranslatorView({
 
   const [sentence, setSentence] = useState("은행에서 번호표 받으세요");
   const [sequence, setSequence] = useState<SignVideoSequenceItem[]>([]);
+  // 아래 결과가 어느 문장에서 나온 것인지. 입력창은 계속 고칠 수 있으므로
+  // sentence를 그대로 쓰면 결과와 원문이 어긋납니다.
+  const [sequenceSource, setSequenceSource] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // 사전에 겹치는 단어가 하나도 없을 때. 오류가 아니라 빈 결과입니다.
@@ -59,10 +59,12 @@ export function TranslatorView({
       // 조사·어순은 AI가 걷어내고, 사전 안의 키워드만 순서대로 돌려줍니다.
       const result = await sentenceToSignSequence(text);
       setSequence(result.sequence);
+      setSequenceSource(text);
       setNoMatch(result.keywords.length === 0);
     } catch (cause) {
       setError(toUserMessage(cause));
       setSequence([]);
+      setSequenceSource("");
     } finally {
       setLoading(false);
     }
@@ -296,6 +298,13 @@ export function TranslatorView({
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-bold text-slate-900">미리보기</p>
+                  {/* 입력창은 계속 고칠 수 있어서, 이 결과가 어느 문장에서 나온
+                      것인지 붙여둡니다. */}
+                  {sequenceSource && (
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      “{sequenceSource}”
+                    </p>
+                  )}
                   <div className="mt-2 flex flex-wrap gap-2">
                     {sequence.map((item) => (
                       <KeywordTag
@@ -310,11 +319,12 @@ export function TranslatorView({
 
                 <button
                   onClick={() =>
-                    onOpenSequence(
-                      "미리보기 전체 재생",
+                    onOpenSequence({
+                      title: "미리보기 전체 재생",
                       sequence,
-                      "position 순서대로 자동 재생됩니다."
-                    )
+                      description: "position 순서대로 자동 재생됩니다.",
+                      sourceText: sequenceSource,
+                    })
                   }
                   className="shrink-0 rounded-2xl bg-sky-500 px-4 py-2 text-sm font-bold text-white shadow-[0_12px_30px_rgba(14,165,233,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0"
                 >

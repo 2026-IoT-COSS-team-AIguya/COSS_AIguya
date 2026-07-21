@@ -77,9 +77,16 @@ class ConversationListSerializer(serializers.ModelSerializer):
             )
             return candidate.sentence if candidate else '수어 분석 중…'
 
-        return ' '.join(
+        emojis = ' '.join(
             item.sign_video.emoji for item in message.sign_video_sequence.all()
         )
+
+        # 원문이 있으면 같이 붙입니다. 이모지만 있으면 목록에서 어떤 대화였는지
+        # 떠올리기가 어렵습니다.
+        if message.text:
+            return f'{emojis} {message.text}' if emojis else message.text
+
+        return emojis
 
     def get_unread_count(self, obj):
         user = self.context['request'].user
@@ -133,4 +140,8 @@ class SignVideoSequenceMessageCreateSerializer(serializers.Serializer):
     keywords = serializers.ListField(
         child=serializers.CharField(max_length=50),
         allow_empty=False,
+    )
+    # 청인이 실제로 친 문장. 키워드를 직접 골라 보낸 경우에는 원문이 없습니다.
+    text = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True, default=''
     )

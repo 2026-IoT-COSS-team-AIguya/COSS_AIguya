@@ -175,14 +175,18 @@ export function createTranslationMessage(
   );
 }
 
+// text는 청인이 실제로 친 문장입니다. 키워드만 보내면 조사·어순이 날아가서,
+// 농인 화면 옆에서 청인이 같이 보고 있을 때 자기가 보낸 말을 확인할 수 없습니다.
+// 키워드를 직접 골라 보낸 경우에는 원문이 없으므로 비워둡니다.
 export function createSignVideoSequenceMessage(
   conversationId: number,
-  keywords: string[]
+  keywords: string[],
+  text = ""
 ) {
   // 명세 7.2: 백엔드는 요청받은 키워드 순서를 유지해야 합니다.
   return api.post<Message>(
     `/conversations/${conversationId}/messages/sign-video-sequence/`,
-    { keywords }
+    { keywords, text }
   );
 }
 
