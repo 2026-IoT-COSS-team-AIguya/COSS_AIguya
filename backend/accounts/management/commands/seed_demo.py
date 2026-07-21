@@ -91,7 +91,7 @@ DEMO_USERS = [
     ('🐶🍎⭐', UserRole.SIGN_USER),
     ('🦊🎈🌈', UserRole.HEARING_USER),
     ('🐰🍇🌙', UserRole.SIGN_USER),
-    ('🐻🍒☀️', UserRole.HEARING_USER),
+    ('🐻🍉☀️', UserRole.HEARING_USER),
     ('🐼🎁💎', UserRole.HEARING_USER),
 ]
 

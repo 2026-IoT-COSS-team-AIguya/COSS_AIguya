@@ -5,7 +5,11 @@ import { useCallback, useEffect, useState } from "react";
 import { ChatView } from "@/components/ChatView";
 import { FriendsView } from "@/components/FriendsView";
 import { LoginScreen } from "@/components/LoginScreen";
-import { SequenceModal, type SequenceModalState } from "@/components/SequenceModal";
+import {
+  SequenceModal,
+  type SequenceModalState,
+  type SequenceRequest,
+} from "@/components/SequenceModal";
 import { SettingsView } from "@/components/SettingsView";
 import { TranslatorView } from "@/components/TranslatorView";
 import { MotionStyles, SidebarButton, StatusPill } from "@/components/ui";
@@ -20,7 +24,7 @@ import {
 } from "@/lib/api/endpoints";
 import { firstGrapheme } from "@/lib/graphemes";
 import { roleLabel, withDisplayName } from "@/lib/types";
-import type { QuickKeyword, SignVideoSequenceItem, User } from "@/lib/types";
+import type { QuickKeyword, User } from "@/lib/types";
 
 type MenuType = "chat" | "friends" | "translator" | "settings";
 
@@ -134,12 +138,8 @@ export default function Page() {
     };
   }, [currentUser]);
 
-  const openSequence = (
-    title: string,
-    sequence: SignVideoSequenceItem[],
-    description?: string
-  ) => {
-    setSequenceModal({ open: true, title, sequence, description });
+  const openSequence = (request: SequenceRequest) => {
+    setSequenceModal({ open: true, ...request });
   };
 
   // 친구 화면에서 대화를 만들면 폴링 주기를 기다리지 않고 바로 그 방으로 데려갑니다.
@@ -216,7 +216,7 @@ export default function Page() {
               />
               <SidebarButton
                 active={activeMenu === "friends"}
-                icon="👥"
+                icon="👫"
                 label="친구"
                 onClick={() => setActiveMenu("friends")}
               />
@@ -252,7 +252,7 @@ export default function Page() {
             <div className="relative z-10">
               <h2 className="text-2xl font-black tracking-tight">
                 {activeMenu === "chat" && "💬 채팅"}
-                {activeMenu === "friends" && "👥 친구"}
+                {activeMenu === "friends" && "👫 친구"}
                 {activeMenu === "translator" && "🔄 번역기 모드"}
                 {activeMenu === "settings" && "⚙️ 설정"}
               </h2>

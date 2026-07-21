@@ -262,7 +262,7 @@ export function FriendsView({
               className="group flex items-center gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-200 hover:bg-white hover:shadow-lg"
             >
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#22C1FF_0%,#1D4ED8_100%)] text-2xl text-white shadow-[0_14px_30px_rgba(29,78,216,0.24)]">
-                {friend.role === "SIGN_USER" ? "🤟" : "⌨️"}
+                {friend.role === "SIGN_USER" ? "🤟" : "✍️"}
               </div>
 
               <div className="min-w-0 flex-1">

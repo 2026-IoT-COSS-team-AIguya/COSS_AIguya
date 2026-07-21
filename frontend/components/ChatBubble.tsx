@@ -1,7 +1,8 @@
 "use client";
 
-import type { Message, SignVideo, SignVideoSequenceItem, User } from "@/lib/types";
+import type { Message, SignVideo, User } from "@/lib/types";
 import { translationStatusLabel, withDisplayName } from "@/lib/types";
+import type { SequenceRequest } from "@/components/SequenceModal";
 import { Avatar, KeywordTag } from "@/components/ui";
 
 function formatTime(iso: string) {
@@ -24,11 +25,7 @@ export function ChatBubble({
   currentUser: User;
   lookup: (keyword: string) => SignVideo;
   matchInText: (text: string) => SignVideo[];
-  onOpenSequence: (
-    title: string,
-    sequence: SignVideoSequenceItem[],
-    description?: string
-  ) => void;
+  onOpenSequence: (request: SequenceRequest) => void;
 }) {
   const isMine = message.sender.id === currentUser.id;
   const isSignUser = currentUser.role === "SIGN_USER";
@@ -146,9 +143,19 @@ export function ChatBubble({
               </p>
               <h4 className="mt-2 flex flex-wrap gap-2 text-3xl">
                 {message.sign_video_sequence.map((item) => (
-                  <span key={item.position}>{item.sign_video.emoji}</span>
+                  <span key={item.position} title={item.sign_video.title}>
+                    {item.sign_video.emoji}
+                  </span>
                 ))}
               </h4>
+
+              {/* 보낸 사람이 실제로 친 문장. 키워드로 쪼개면 조사·어순이 날아가서
+                  옆에서 같이 보는 청인이 자기가 보낸 말을 못 알아봅니다. */}
+              {message.text && (
+                <p className="mt-3 border-t border-white/15 pt-3 text-lg font-black leading-relaxed text-white">
+                  “{message.text}”
+                </p>
+              )}
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -165,11 +172,12 @@ export function ChatBubble({
 
             <button
               onClick={() =>
-                onOpenSequence(
-                  "수어 영상 시퀀스",
-                  message.sign_video_sequence,
-                  "순서대로 자동 재생됩니다."
-                )
+                onOpenSequence({
+                  title: "수어 영상 시퀀스",
+                  sequence: message.sign_video_sequence,
+                  description: "순서대로 자동 재생됩니다.",
+                  sourceText: message.text ?? undefined,
+                })
               }
               className="mt-4 w-full rounded-2xl bg-sky-500 px-4 py-3 text-sm font-bold text-white shadow-[0_12px_30px_rgba(14,165,233,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0"
             >

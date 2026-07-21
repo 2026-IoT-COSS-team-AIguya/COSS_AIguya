@@ -196,13 +196,21 @@ def create_translation_message(conversation, sender, translation):
 
 
 @transaction.atomic
-def create_sign_video_sequence_message(conversation, sender, keywords):
+def create_sign_video_sequence_message(conversation, sender, keywords, text=''):
+    """키워드 순서대로 수어 영상 시퀀스를 보냅니다.
+
+    text는 청인이 실제로 친 문장입니다. 키워드로 쪼개고 나면 "은행 번호 받다"처럼
+    조사·어순이 날아가서, 농인 화면 옆에서 청인이 같이 보고 있을 때 자기가 뭘 보냈는지
+    확인할 수가 없습니다. 원문을 같이 실어두면 양쪽이 같은 것을 봅니다.
+    """
     check_conversation_access(conversation, sender)
 
     # 명세 7.2: 요청받은 키워드 순서를 유지합니다.
     sequence = build_sign_video_sequence(keywords)
 
-    message = _create_message(conversation, sender, MessageType.SIGN_VIDEO_SEQUENCE)
+    message = _create_message(
+        conversation, sender, MessageType.SIGN_VIDEO_SEQUENCE, text=text
+    )
 
     SignVideoSequenceItem.objects.bulk_create(
         [

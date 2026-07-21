@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { CaptureButton } from "@/components/CaptureButton";
 import { ChatBubble } from "@/components/ChatBubble";
+import type { SequenceRequest } from "@/components/SequenceModal";
 import { ActionButton, Panel } from "@/components/ui";
 import { useMessagePolling } from "@/hooks/useMessagePolling";
 import {
@@ -13,13 +14,7 @@ import {
 } from "@/lib/api/endpoints";
 import { toUserMessage } from "@/lib/api/errors";
 import { withDisplayName } from "@/lib/types";
-import type {
-  Conversation,
-  QuickKeyword,
-  SignVideo,
-  SignVideoSequenceItem,
-  User,
-} from "@/lib/types";
+import type { Conversation, QuickKeyword, SignVideo, User } from "@/lib/types";
 
 export function ChatView({
   conversations,
@@ -39,11 +34,7 @@ export function ChatView({
   quickKeywords: QuickKeyword[];
   lookup: (keyword: string) => SignVideo;
   matchInText: (text: string) => SignVideo[];
-  onOpenSequence: (
-    title: string,
-    sequence: SignVideoSequenceItem[],
-    description?: string
-  ) => void;
+  onOpenSequence: (request: SequenceRequest) => void;
   onAuthExpired: () => void;
 }) {
   const isSignUser = currentUser.role === "SIGN_USER";
@@ -146,8 +137,10 @@ export function ChatView({
     setSending(true);
     setError(null);
 
+    const sentence = draft.trim();
+
     try {
-      const { keywords } = await sentenceToSignSequence(draft.trim());
+      const { keywords } = await sentenceToSignSequence(sentence);
 
       if (keywords.length === 0) {
         setError(
@@ -156,7 +149,13 @@ export function ChatView({
         return;
       }
 
-      const message = await createSignVideoSequenceMessage(selectedId, keywords);
+      // 원문을 같이 실어 보냅니다 — 농인 옆에서 청인이 같이 보는 자리라,
+      // 영상만 뜨면 자기가 뭘 보냈는지 확인할 수가 없습니다.
+      const message = await createSignVideoSequenceMessage(
+        selectedId,
+        keywords,
+        sentence
+      );
       appendLocal(message);
       setDraft("");
     } catch (cause) {
@@ -194,7 +193,7 @@ export function ChatView({
                 아직 대화가 없어요
               </p>
               <p className="mt-2 text-xs leading-5 text-slate-400">
-                👥 친구 화면에서 이모지 아이디로 친구를 추가한 뒤 대화를 시작하세요.
+                👫 친구 화면에서 이모지 아이디로 친구를 추가한 뒤 대화를 시작하세요.
               </p>
             </div>
           )}

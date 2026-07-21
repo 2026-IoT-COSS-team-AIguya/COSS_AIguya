@@ -14,7 +14,7 @@ export { countGraphemes, removeLastGrapheme } from "@/lib/graphemes";
 // 뚜렷하게 다른 것들로 고릅니다.
 export const ID_EMOJIS = [
   "🐶", "🐱", "🐰", "🦊", "🐻", "🐼",
-  "🍎", "🍌", "🍇", "🍓", "🍒", "🍑",
+  "🍎", "🍌", "🍇", "🍓", "🍉", "🍑",
   "⚽", "🎈", "🎁", "🎸", "🚗", "✈️",
   "⭐", "🌙", "☀️", "🌈", "❤️", "💎",
 ];

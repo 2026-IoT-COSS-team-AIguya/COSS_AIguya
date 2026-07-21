@@ -8,8 +8,14 @@ export type SequenceModalState = {
   open: boolean;
   title: string;
   description?: string;
+  // 청인이 실제로 친 문장. 키워드로 쪼개면 조사·어순이 날아가므로, 농인 옆에서
+  // 같이 보고 있는 청인을 위해 영상과 나란히 띄웁니다.
+  sourceText?: string;
   sequence: SignVideoSequenceItem[];
 };
+
+/** 모달을 열 때 넘기는 값. open은 여는 쪽이 아니라 페이지가 붙입니다. */
+export type SequenceRequest = Omit<SequenceModalState, "open">;
 
 export function SequenceModal({
   modal,
@@ -77,6 +83,14 @@ export function SequenceModal({
                 {modal.description}
               </p>
             )}
+
+            {/* 원문은 재생 내내 자리를 지킵니다 — 영상이 넘어가도 옆에서 같이
+                보는 청인이 자기가 보낸 문장을 계속 확인할 수 있어야 합니다. */}
+            {modal.sourceText && (
+              <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-lg font-black leading-relaxed text-slate-900">
+                “{modal.sourceText}”
+              </p>
+            )}
           </div>
 
           <button
@@ -115,19 +129,36 @@ export function SequenceModal({
               </div>
 
               {active.sign_video.video_url ? (
-                <video
-                  ref={videoRef}
-                  key={active.sign_video.video_url}
-                  src={active.sign_video.video_url}
-                  controls
-                  autoPlay
-                  onEnded={handleEnded}
-                  className="w-full rounded-2xl bg-slate-950 shadow-inner"
-                />
+                // 재생 중인 영상 위에 그 키워드의 이모지를 얹습니다. 손 모양만
+                // 보고 무슨 단어인지 알기 어려운데, 위쪽 카드는 영상을 크게 띄우면
+                // 화면 밖으로 밀려납니다.
+                <div className="relative">
+                  <video
+                    ref={videoRef}
+                    key={active.sign_video.video_url}
+                    src={active.sign_video.video_url}
+                    controls
+                    autoPlay
+                    onEnded={handleEnded}
+                    className="w-full rounded-2xl bg-slate-950 shadow-inner"
+                  />
+
+                  <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-2 rounded-2xl bg-slate-950/70 px-3 py-2 backdrop-blur">
+                    <span className="text-3xl leading-none">
+                      {active.sign_video.emoji}
+                    </span>
+                    <span className="text-sm font-black text-white">
+                      {active.sign_video.title}
+                    </span>
+                  </div>
+                </div>
               ) : (
                 <div className="flex h-64 items-center justify-center rounded-2xl bg-slate-950 text-white">
                   <div className="text-center">
                     <p className="text-7xl">{active.sign_video.emoji}</p>
+                    <p className="mt-3 text-2xl font-black">
+                      {active.sign_video.title}
+                    </p>
                     <p className="mt-4 text-sm text-slate-300">
                       아직 연결된 영상이 없어요. AI 개발 완료 후 연결될 예정입니다.
                     </p>

@@ -196,7 +196,10 @@ class SignVideoSequenceMessageCreateAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         message = services.create_sign_video_sequence_message(
-            conversation, request.user, serializer.validated_data['keywords']
+            conversation,
+            request.user,
+            serializer.validated_data['keywords'],
+            text=serializer.validated_data.get('text', '').strip(),
         )
 
         # 방금 만든 시퀀스를 붙여서 돌려줘야 프론트가 바로 렌더할 수 있습니다.
