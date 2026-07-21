@@ -80,34 +80,8 @@ def _predict_segment(kp_segment: np.ndarray) -> tuple[str, float]:
     return str(_proto_words[best]), float(probs[best])
 
 
-def predict_sequence(video_path: str) -> list[tuple[str, float]]:
-    """한 영상 안에 여러 단어가 순서대로 사인된 경우, 움직임이 멈추는
-    지점(단어 사이 pause)마다 나눠서 단어별로 하나씩 예측한다.
-
-    predict()는 "영상 전체 = 단어 하나"라는 가정으로 top-k 후보를 주는
-    반면, 이 함수는 영상 하나에 여러 단어가 연달아 들어있는 실제 라즈베리
-    파이 촬영(버튼 한 번 = 여러 단어 연속)을 위한 것. 반환값은 영상에 나온
-    순서대로 (단어, 확신도) 리스트 -- 단어 개수가 세그먼트 개수만큼 나온다.
-    """
-    _load()
-
-    kp = extract_keypoints_from_video(video_path)
-    kp = normalize_sequence(kp)
-    kp = trim_to_motion(kp)
-
-    MIN_SEGMENT_CONF = 0.6  # 단어 경계에서 동작이 섞여 애매하게 나오는 조각 필터링용
-
-    segments = segment_words(kp)
-    raw_results = []
-    for start, end in segments:
-        word, conf = _predict_segment(kp[start:end])
-        if conf < MIN_SEGMENT_CONF:
-            continue  # 실제 단어 사이 전환 구간이 섞여 들어온 노이즈일 가능성이 큼
-        raw_results.append((word, conf))
-
-    # 한 단어 동작 안에서도 준비/스트로크 사이에 미세하게 멈칫하는 순간이
-    # 있어서, segment_words가 같은 단어를 여러 조각으로 쪼갤 때가 있다.
-    # 연속으로 같은 단어가 나오면 하나로 합친다(신뢰도는 더 높은 쪽 사용).
+def _merge_runs(raw_results: list[tuple[str, float]]) -> list[tuple[str, float]]:
+    """연속으로 같은 단어가 나오면 하나로 합친다(신뢰도는 더 높은 쪽 사용)."""
     results: list[tuple[str, float]] = []
     for word, conf in raw_results:
         if results and results[-1][0] == word:
@@ -115,6 +89,79 @@ def predict_sequence(video_path: str) -> list[tuple[str, float]]:
         else:
             results.append((word, conf))
     return results
+
+
+def _predict_by_pause(kp: np.ndarray, min_conf: float = 0.6) -> list[tuple[str, float]]:
+    """손 움직임이 멈추는 지점(단어 사이 pause)마다 나눠서 단어별로 예측."""
+    segments = segment_words(kp)
+    raw = []
+    for start, end in segments:
+        word, conf = _predict_segment(kp[start:end])
+        if conf < min_conf:
+            continue  # 단어 경계에서 동작이 섞인 노이즈 구간일 가능성이 큼
+        raw.append((word, conf))
+    return _merge_runs(raw)
+
+
+def _predict_sliding(
+    kp: np.ndarray, window: int = 55, stride: int = 12, min_conf: float = 0.55, min_run: int = 2
+) -> list[tuple[str, float]]:
+    """정지 구간이 없어서(자연스럽게 이어지는 수어) pause 기반 분리가 안 될 때
+    쓰는 백업 방식. 멈춤을 찾는 대신 일정 길이(window)만큼 겹쳐가며(stride)
+    영상을 훑어서 매 구간마다 "지금 이건 무슨 단어야?"를 계속 물어본다.
+
+    같은 단어가 여러 윈도우에 걸쳐 연속으로 나오면 그 구간을 한 단어로 보고,
+    winodw 몇 개 이상 연속되지 않으면(=min_run) 스쳐 지나가는 전환 노이즈로
+    보고 버린다. pause 기반보다 전환 구간 오탐이 더 잦을 수 있다.
+    """
+    n = kp.shape[0]
+    if n <= window:
+        word, conf = _predict_segment(kp)
+        return [(word, conf)] if conf >= min_conf else []
+
+    window_preds = []
+    for start in range(0, n - window + 1, stride):
+        word, conf = _predict_segment(kp[start : start + window])
+        window_preds.append((word, conf))
+    # 마지막 프레임까지 확실히 덮도록 끝 윈도우 하나 추가
+    word, conf = _predict_segment(kp[n - window :])
+    window_preds.append((word, conf))
+
+    # run-length: 같은 단어가 연속되는 구간을 하나의 후보로 묶음
+    runs: list[tuple[str, float, int]] = []  # (word, best_conf, run_length)
+    for word, conf in window_preds:
+        if runs and runs[-1][0] == word:
+            w, c, cnt = runs[-1]
+            runs[-1] = (w, max(c, conf), cnt + 1)
+        else:
+            runs.append((word, conf, 1))
+
+    return [(w, c) for w, c, cnt in runs if cnt >= min_run and c >= min_conf]
+
+
+def predict_sequence(video_path: str) -> list[tuple[str, float]]:
+    """한 영상 안에 여러 단어가 순서대로 사인된 경우, 순서대로 단어 리스트를
+    예측한다 (버튼 한 번 = 여러 단어 연속 촬영을 위한 함수).
+
+    predict()는 "영상 전체 = 단어 하나"라는 가정으로 top-k 후보를 주는
+    반면, 이 함수는 여러 단어가 들어있다고 가정한다. 길이로 "단어 하나냐
+    여러 개냐"를 미리 가르지 않고 항상 슬라이딩 윈도우로 처리한다 --
+    단어 길이가 실제로는 60~177프레임까지 다양해서 고정 길이 기준으로는
+    단어 하나/여러 개를 안정적으로 구분할 수 없었다(테스트로 확인).
+    슬라이딩 윈도우는 진짜 단어 하나짜리 긴 영상(177프레임)도 알아서 하나로
+    합쳐지고, 여러 단어가 이어진 영상도 정지 구간 없이 잘 나뉘었다.
+
+    pause(정지 구간) 기반 분리(_predict_by_pause)는 실제 단어 안에서도
+    준비/스트로크 사이에 미세하게 멈칫하는 순간이 있어서 같은 단어를 여러
+    조각으로 쪼개는 경우가 잦아 기본값으로는 안 쓴다(디버깅용으로 남겨둠).
+    """
+    _load()
+
+    kp = extract_keypoints_from_video(video_path)
+    kp = normalize_sequence(kp)
+    kp = trim_to_motion(kp)
+
+    return _predict_sliding(kp)
 
 
 if __name__ == "__main__":
