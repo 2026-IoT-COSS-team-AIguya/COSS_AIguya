@@ -24,6 +24,8 @@ media
 *.so
 
 # Distribution / packaging
+# ⚠️ 앞의 /는 지우지 마세요. Python 빌드 산출물용 패턴이라 파이썬 프로젝트
+# 루트에만 적용해야 합니다. 없으면 frontend/lib(API 클라이언트)까지 잡습니다.
 .Python
 build/
 develop-eggs/
@@ -31,8 +33,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -207,12 +209,17 @@ Temporary Items
 ### venv ###
 # Virtualenv
 # http://iamzed.com/2009/05/07/a-primer-on-virtualenv/
-[Bb]in
-[Ii]nclude
-[Ll]ib
-[Ll]ib64
-[Ll]ocal
-[Ss]cripts
+#
+# ⚠️ 앞의 /는 지우지 마세요. 없으면 이 패턴들이 깊이에 상관없이 같은 이름의
+# 폴더를 전부 잡습니다 — [Ll]ib 가 frontend/lib(API 클라이언트 전체)을 통째로
+# 무시해서 커밋조차 안 되고 있었습니다. 루트에 만든 가상환경만 걸러야 합니다.
+# (backend/.venv 는 아래 "Environments"의 .venv 가 이미 처리합니다.)
+/[Bb]in
+/[Ii]nclude
+/[Ll]ib
+/[Ll]ib64
+/[Ll]ocal
+/[Ss]cripts
 pyvenv.cfg
 pip-selfcheck.json
 
@@ -286,3 +293,13 @@ wandb/
 *.mkv
 runs/
 datasets/
+# 라즈베리파이가 촬영한 임시 영상 (업로드 후 삭제되지만 남을 수 있음)
+hardware/raspberry_pi/captures/
+.vercel
+
+# 실제 값이 든 파일(.env, .env.local)은 어느 폴더에 있든 커밋하지 않습니다.
+.env*
+# 다만 예시 파일은 커밋해야 새로 받은 사람이 뭘 채울지 압니다.
+# (이 예외가 없으면 .env* 가 .env.example 까지 조용히 삼킵니다.)
+!.env.example
+!**/.env.example

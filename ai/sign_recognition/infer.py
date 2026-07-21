@@ -89,7 +89,17 @@ def _predict_sliding(
         else:
             runs.append((word, conf, 1))
 
-    return [(w, c) for w, c, cnt in runs if cnt >= min_run and c >= min_conf]
+    # 마지막 단어는 영상이 거기서 끝나버려서 뒤에서 확인해줄 윈도우가 없다
+    # -- min_run(연속 등장 횟수) 조건을 그대로 적용하면 마지막 단어가 구조적으로
+    # 불리해서 자주 통째로 버려진다(실제 테스트로 확인: 신뢰도 64%로 정확히
+    # 잡혔는데 윈도우 1개뿐이라 버려짐). 그래서 마지막 run만 신뢰도만 통과하면
+    # 인정한다.
+    last_idx = len(runs) - 1
+    return [
+        (w, c)
+        for i, (w, c, cnt) in enumerate(runs)
+        if c >= min_conf and (cnt >= min_run or i == last_idx)
+    ]
 
 
 def predict_sequence(video_path: str) -> list[tuple[str, float]]:
