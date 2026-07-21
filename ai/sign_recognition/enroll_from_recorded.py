@@ -36,7 +36,7 @@ DEMO_PERSONS = {"A", "B", "D"}
 ONLY_DEMO_WORDS = True
 DEMO_WORDS = {
     "친구", "놀다", "기대", "괜찮다", "기다리다",
-    "은행", "대출", "알다", "잠깐", "죄송", "모르다", "감사",
+    "은행", "대출", "알다", "잠깐", "죄송", "모르다", "감사", "어디",
 }
 
 MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "sign_encoder.pt"
