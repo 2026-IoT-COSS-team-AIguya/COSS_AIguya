@@ -1,8 +1,15 @@
-"""일반인이 입력한 자유 문장 -> 학습된 수어 단어 목록 중 해당하는 키워드 추출
-(일반인 -> 수어사용자).
+"""일반인이 입력한 자유 문장 -> 재생 가능한 수어 영상이 있는 단어 중 해당하는
+키워드 추출 (일반인 -> 수어사용자).
 
-text_to_sign이 재생할 수 있는 단어는 sign_recognition이 학습한 것뿐이다
-(목록은 ai/data/word_label_map.json, 재학습할 때마다 자동으로 갱신됨). 그래서
+주의: 어휘 목록을 ai/data/word_label_map.json에서 가져오지 않는다 -- 그
+파일은 train_front_only.py가 "팀원이 직접 촬영해서(recorded/) 인식 모델을
+학습시킨 단어"만 기준으로 재학습할 때마다 덮어쓰는 파일이라, AIHub에서만
+가져온 단어(예: 병원 시나리오의 수요일/상담/치료 등, 인식 학습엔 안 쓰지만
+텍스트->수어 영상 재생은 되는 단어)가 재학습 한 번에 통째로 사라지는 버그가
+있었다. 대신 여기서는 실제 영상이 존재하는 폴더(sign_words/reference_clips/
+recorded)를 직접 스캔해서 "영상이 있으면 곧 재생 가능한 단어"로 어휘를
+구성한다 -- 재학습 여부와 무관하게 항상 정확하다.
+
 LLM에게 문장을 자유롭게 이해시키되, 답은 반드시 이 목록 안에서만 고르게 해서
 목록에 없는 단어를 지어내는(hallucination) 걸 막는다.
 
@@ -12,17 +19,19 @@ LLM에게 문장을 자유롭게 이해시키되, 답은 반드시 이 목록 �
 """
 from __future__ import annotations
 
-import json
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "text_to_sign"))
+from lookup import RECORDED_DIR, REFERENCE_CLIPS_DIR, SIGN_WORDS_DIR  # noqa: E402
 
 from _llm_common import generate_json, get_client
 
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
 MODEL = "gemini-flash-lite-latest"
-VOCAB_PATH = Path(__file__).resolve().parent.parent / "data" / "word_label_map.json"
 
 SYSTEM_PROMPT_TEMPLATE = """너는 한국어 문장을 한국 수어로 통역하는 통역사다.
 지금 수어로 표현 가능한 단어는 아래 목록뿐이다(목록에 없는 단어는 통역할 수 없다):
@@ -38,8 +47,12 @@ SYSTEM_PROMPT_TEMPLATE = """너는 한국어 문장을 한국 수어로 통역�
 
 
 def _load_vocab() -> list[str]:
-    with open(VOCAB_PATH, encoding="utf-8") as f:
-        return sorted(json.load(f).keys())
+    words = set()
+    for base in (SIGN_WORDS_DIR, REFERENCE_CLIPS_DIR, RECORDED_DIR):
+        if not base.exists():
+            continue
+        words.update(p.name for p in base.iterdir() if p.is_dir())
+    return sorted(words)
 
 
 def extract_keywords(sentence: str) -> list[str]:
